@@ -79,7 +79,7 @@ fun AttendanceSuccessDialog(
     var showPacketDetails by remember { mutableStateOf(false) }
     val isTimeIn = record.type == AttendanceType.TIME_IN
     val primaryColor = if (isTimeIn) TimeInGreen else TimeOutAmber
-    val containerColor = if (isTimeIn) TimeInGreenContainer else TimeOutAmberContainer
+    val containerColor = primaryColor.copy(alpha = 0.16f)
     val actionTitle = if (isTimeIn) "Time In" else "Time Out"
 
     Dialog(onDismissRequest = onDismiss) {
@@ -106,7 +106,7 @@ fun AttendanceSuccessDialog(
                             .align(Alignment.TopEnd)
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(BorderSubtle.copy(alpha = 0.5f))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                             .testTag("dialog_close_button")
                     ) {
                         Icon(
@@ -124,7 +124,7 @@ fun AttendanceSuccessDialog(
                         .size(72.dp)
                         .clip(CircleShape)
                         .background(containerColor)
-                        .border(2.dp, primaryColor.copy(alpha = 0.4f), CircleShape),
+                        .border(2.dp, primaryColor.copy(alpha = 0.5f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -168,9 +168,13 @@ fun AttendanceSuccessDialog(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    color = SurfaceCanvas,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
                 ) {
+                    val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -178,16 +182,16 @@ fun AttendanceSuccessDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         ProfileDetailRow(label = "Employee ID:", value = profile.employeeId)
-                        HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
+                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
                         ProfileDetailRow(label = "Name:", value = profile.name)
-                        HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
+                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
                         ProfileDetailRow(label = "Designation:", value = profile.designation)
-                        HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
+                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
                         val resolvedLocation = record.locationName.ifBlank { profile.location }
                         ProfileDetailRow(label = "Location:", value = resolvedLocation)
-                        HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
+                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
                         ProfileDetailRow(label = "Phone IMEI:", value = record.imei)
-                        HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
+                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
                         val latDir = if (record.latitude >= 0) "N" else "S"
                         val lonDir = if (record.longitude >= 0) "E" else "W"
                         val formattedGps = "${String.format(java.util.Locale.US, "%.5f", Math.abs(record.latitude))}° $latDir, ${String.format(java.util.Locale.US, "%.5f", Math.abs(record.longitude))}° $lonDir"
