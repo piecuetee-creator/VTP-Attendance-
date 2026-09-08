@@ -12,20 +12,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -38,17 +41,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.EmployeeProfile
 import com.example.model.SocketConfig
 import com.example.ui.theme.BorderSubtle
 import com.example.ui.theme.DIBEmeraldPrimary
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.vtpTextFieldColors
+import com.example.util.DeviceInfoManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +64,7 @@ fun SettingsSheet(
     onDismiss: () -> Unit,
     sheetState: SheetState
 ) {
+    val context = LocalContext.current
     var imei by remember { mutableStateOf(config.imei) }
     var wsUrl by remember { mutableStateOf(config.wsUrl) }
     var tcpHost by remember { mutableStateOf(config.tcpHost) }
@@ -74,7 +79,7 @@ fun SettingsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = SurfaceCard,
+        containerColor = MaterialTheme.colorScheme.surface,
         modifier = Modifier.testTag("settings_bottom_sheet")
     ) {
         Column(
@@ -102,7 +107,7 @@ fun SettingsSheet(
                         text = "Settings & Protocol",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -110,7 +115,7 @@ fun SettingsSheet(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close",
-                        tint = TextSecondary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -119,7 +124,7 @@ fun SettingsSheet(
 
             // GT06 Protocol Settings Section
             Text(
-                text = "GT06 SOCKET GATEWAY",
+                text = "GT06 SOCKET GATEWAY & TELEMETRY",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = DIBEmeraldPrimary,
@@ -130,13 +135,45 @@ fun SettingsSheet(
 
             OutlinedTextField(
                 value = imei,
-                onValueChange = { imei = it },
-                label = { Text("Device IMEI (15 Digits)") },
+                onValueChange = { input ->
+                    val digitsOnly = input.filter { it.isDigit() }
+                    if (digitsOnly.length <= 15) {
+                        imei = digitsOnly
+                    }
+                },
+                label = { Text("Phone IMEI (15 Digits)") },
+                placeholder = { Text("e.g. 860003333257875") },
+                leadingIcon = {
+                    Icon(Icons.Default.Smartphone, contentDescription = null, tint = DIBEmeraldPrimary)
+                },
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            imei = DeviceInfoManager.getDeviceImei(context)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Auto-detect Phone IMEI",
+                            tint = DIBEmeraldPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                },
+                supportingText = {
+                    Text(
+                        text = "Transmitted via GT06 Login packet (0x01) with live GPS Lat/Long",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("imei_input"),
                 shape = RoundedCornerShape(10.dp),
-                colors = textFieldColors()
+                colors = vtpTextFieldColors()
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -151,12 +188,12 @@ fun SettingsSheet(
                         text = "Use WebSocket Mode",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = if (useWs) "Streaming via ws:// protocol" else "Raw TCP socket",
                         fontSize = 12.sp,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(
@@ -179,7 +216,7 @@ fun SettingsSheet(
                     .fillMaxWidth()
                     .testTag("ws_url_input"),
                 shape = RoundedCornerShape(10.dp),
-                colors = textFieldColors()
+                colors = vtpTextFieldColors()
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -194,7 +231,7 @@ fun SettingsSheet(
                     label = { Text("TCP Host") },
                     modifier = Modifier.weight(2f),
                     shape = RoundedCornerShape(10.dp),
-                    colors = textFieldColors()
+                    colors = vtpTextFieldColors()
                 )
 
                 OutlinedTextField(
@@ -203,17 +240,17 @@ fun SettingsSheet(
                     label = { Text("Port") },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
-                    colors = textFieldColors()
+                    colors = vtpTextFieldColors()
                 )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
-            HorizontalDivider(color = BorderSubtle)
+            HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
             Spacer(modifier = Modifier.height(16.dp))
 
             // Employee Profile Section
             Text(
-                text = "EMPLOYEE PROFILE",
+                text = "EMPLOYEE PROFILE OVERRIDE",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = DIBEmeraldPrimary,
@@ -226,9 +263,11 @@ fun SettingsSheet(
                 value = empId,
                 onValueChange = { empId = it },
                 label = { Text("Employee ID") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings_emp_id_input"),
                 shape = RoundedCornerShape(10.dp),
-                colors = textFieldColors()
+                colors = vtpTextFieldColors()
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -237,9 +276,11 @@ fun SettingsSheet(
                 value = empName,
                 onValueChange = { empName = it },
                 label = { Text("Full Name") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings_emp_name_input"),
                 shape = RoundedCornerShape(10.dp),
-                colors = textFieldColors()
+                colors = vtpTextFieldColors()
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -248,9 +289,11 @@ fun SettingsSheet(
                 value = empDesig,
                 onValueChange = { empDesig = it },
                 label = { Text("Designation") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings_emp_desig_input"),
                 shape = RoundedCornerShape(10.dp),
-                colors = textFieldColors()
+                colors = vtpTextFieldColors()
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -258,33 +301,36 @@ fun SettingsSheet(
             OutlinedTextField(
                 value = empLoc,
                 onValueChange = { empLoc = it },
-                label = { Text("Office Location") },
-                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Work City / Office") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings_emp_loc_input"),
                 shape = RoundedCornerShape(10.dp),
-                colors = textFieldColors()
+                colors = vtpTextFieldColors()
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Save Action Button
             Button(
                 onClick = {
                     val port = tcpPort.toIntOrNull() ?: 5200
+                    val cleanImei = DeviceInfoManager.sanitizeImei(imei.trim())
                     onSaveConfig(
                         config.copy(
-                            imei = imei,
-                            wsUrl = wsUrl,
-                            tcpHost = tcpHost,
+                            imei = cleanImei,
+                            wsUrl = wsUrl.trim(),
+                            tcpHost = tcpHost.trim(),
                             tcpPort = port,
                             useWebSocket = useWs
                         )
                     )
                     onSaveProfile(
                         profile.copy(
-                            employeeId = empId,
-                            name = empName,
-                            designation = empDesig,
-                            location = empLoc
+                            employeeId = empId.trim(),
+                            name = empName.trim(),
+                            designation = empDesig.trim(),
+                            location = empLoc.trim(),
+                            imei = cleanImei
                         )
                     )
                     onDismiss()
@@ -312,11 +358,3 @@ fun SettingsSheet(
         }
     }
 }
-
-@Composable
-private fun textFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = DIBEmeraldPrimary,
-    unfocusedBorderColor = BorderSubtle,
-    focusedLabelColor = DIBEmeraldPrimary,
-    cursorColor = DIBEmeraldPrimary
-)

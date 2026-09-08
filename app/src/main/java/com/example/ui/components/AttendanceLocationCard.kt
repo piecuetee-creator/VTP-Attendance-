@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,12 +17,22 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.EditLocation
+import androidx.compose.material.icons.filled.GpsFixed
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,7 +52,6 @@ import com.example.ui.theme.DIBEmeraldDark
 import com.example.ui.theme.DIBEmeraldPrimary
 import com.example.ui.theme.DIBGoldAccent
 import com.example.ui.theme.SurfaceCanvas
-import com.example.ui.theme.SurfaceCard
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.TimeInGreen
@@ -52,12 +62,18 @@ fun AttendanceLocationCard(
     locationName: String,
     isLoadingLocation: Boolean,
     onRefreshLocation: () -> Unit,
+    onOpenLocationPicker: () -> Unit,
+    onQuickSwitchToPakistan: () -> Unit,
+    onRequestPermission: (() -> Unit)? = null,
+    imei: String = "",
     modifier: Modifier = Modifier
 ) {
+    val displayLocationName = coordinates.addressName?.takeIf { it.isNotBlank() } ?: locationName
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        color = SurfaceCard,
+        color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
         shadowElevation = 2.dp
     ) {
@@ -71,63 +87,106 @@ fun AttendanceLocationCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(40.dp)
                             .clip(CircleShape)
-                            .background(DIBEmeraldContainer),
+                            .background(
+                                if (coordinates.isRealGps && !coordinates.isCloudEmulator) TimeInGreen.copy(alpha = 0.15f)
+                                else DIBEmeraldContainer
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.LocationOn,
+                            imageVector = if (coordinates.isRealGps && !coordinates.isCloudEmulator) Icons.Default.GpsFixed else Icons.Default.LocationOn,
                             contentDescription = "Location Pin",
-                            tint = DIBEmeraldPrimary,
-                            modifier = Modifier.size(20.dp)
+                            tint = if (coordinates.isRealGps && !coordinates.isCloudEmulator) TimeInGreen else DIBEmeraldPrimary,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
 
-                    Column {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onOpenLocationPicker() }
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (coordinates.isCloudEmulator) "Cloud Virtual GPS (US)" else "Attendance Location",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (coordinates.isCloudEmulator) DIBGoldAccent else if (coordinates.isRealGps) TimeInGreen else TextSecondary
+                            )
+                            if (coordinates.isRealGps && !coordinates.isCloudEmulator) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Actual GPS Active",
+                                    tint = TimeInGreen,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
                         Text(
-                            text = "Attendance Location",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextSecondary
-                        )
-                        Text(
-                            text = locationName,
+                            text = displayLocationName,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = TextPrimary,
+                            maxLines = 2
                         )
                     }
                 }
 
-                IconButton(
-                    onClick = onRefreshLocation,
-                    enabled = !isLoadingLocation,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(SurfaceCanvas)
-                        .border(1.dp, BorderSubtle, CircleShape)
-                        .testTag("refresh_location_button")
-                ) {
-                    if (isLoadingLocation) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            color = DIBEmeraldPrimary,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onOpenLocationPicker,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(SurfaceCanvas)
+                            .border(1.dp, BorderSubtle, CircleShape)
+                            .testTag("change_location_button")
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh GPS",
+                            imageVector = Icons.Default.EditLocation,
+                            contentDescription = "Change Location",
                             tint = DIBEmeraldPrimary,
                             modifier = Modifier.size(18.dp)
                         )
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    IconButton(
+                        onClick = onRefreshLocation,
+                        enabled = !isLoadingLocation,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(SurfaceCanvas)
+                            .border(1.dp, BorderSubtle, CircleShape)
+                            .testTag("refresh_location_button")
+                    ) {
+                        if (isLoadingLocation) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = DIBEmeraldPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh GPS",
+                                tint = DIBEmeraldPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -143,22 +202,25 @@ fun AttendanceLocationCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
                             imageVector = Icons.Default.MyLocation,
                             contentDescription = null,
-                            tint = if (coordinates.isRealGps) TimeInGreen else DIBGoldAccent,
-                            modifier = Modifier.size(14.dp)
+                            tint = if (coordinates.isCloudEmulator) DIBGoldAccent else if (coordinates.isRealGps) TimeInGreen else DIBEmeraldPrimary,
+                            modifier = Modifier.size(15.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "${String.format("%.4f", coordinates.latitude)}° N, ${String.format("%.4f", coordinates.longitude)}° E",
+                            text = coordinates.formatCoordinates(),
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TextPrimary
                         )
@@ -168,17 +230,141 @@ fun AttendanceLocationCard(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .background(
-                                if (coordinates.isRealGps) TimeInGreen.copy(alpha = 0.12f)
-                                else DIBGoldAccent.copy(alpha = 0.15f)
+                                if (coordinates.isCloudEmulator) DIBGoldAccent.copy(alpha = 0.18f)
+                                else if (coordinates.isRealGps) TimeInGreen.copy(alpha = 0.12f)
+                                else DIBEmeraldContainer
                             )
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .padding(horizontal = 7.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = if (coordinates.isRealGps) "Live GPS Fix" else "Default Coordinates",
+                            text = if (coordinates.isCloudEmulator) {
+                                "Cloud Emulator GPS"
+                            } else if (coordinates.isRealGps) {
+                                val acc = if (coordinates.accuracyMeters > 0) " (±${coordinates.accuracyMeters.toInt()}m)" else ""
+                                "Actual Location$acc"
+                            } else {
+                                "Default Location"
+                            },
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (coordinates.isRealGps) TimeInGreen else DIBEmeraldDark
+                            color = if (coordinates.isCloudEmulator) DIBEmeraldDark else if (coordinates.isRealGps) TimeInGreen else DIBEmeraldDark
                         )
+                    }
+                }
+            }
+
+            // Phone IMEI Telemetry Row
+            if (imei.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = SurfaceCanvas
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Smartphone,
+                                contentDescription = null,
+                                tint = DIBEmeraldPrimary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "IMEI: $imei",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(DIBEmeraldContainer)
+                                .padding(horizontal = 7.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "GT06 Login (0x01)",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = DIBEmeraldDark
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Cloud Emulator Notice & 1-tap Pakistan Switch
+            if (coordinates.isCloudEmulator) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = DIBGoldAccent.copy(alpha = 0.12f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DIBGoldAccent.copy(alpha = 0.35f))
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = DIBEmeraldDark,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Running in Cloud Web Emulator (US Datacenter)",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = DIBEmeraldDark
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "On your real Android phone in Pakistan, the APK uses your physical GPS. For this preview, tap below to switch to your Pakistan location:",
+                            fontSize = 11.sp,
+                            color = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = onQuickSwitchToPakistan,
+                                modifier = Modifier
+                                    .weight(1.3f)
+                                    .height(34.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = DIBEmeraldPrimary,
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("🇵🇰 Set to Karachi, Pakistan", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = onOpenLocationPicker,
+                                modifier = Modifier
+                                    .weight(0.9f)
+                                    .height(34.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Choose...", fontSize = 11.sp, color = DIBEmeraldDark)
+                            }
+                        }
                     }
                 }
             }

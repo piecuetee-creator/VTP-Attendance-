@@ -21,10 +21,11 @@ data class SocketLogEntry(
 )
 
 data class EmployeeProfile(
-    val employeeId: String = "9771",
-    val name: String = "Saad Ali Hafiz",
-    val designation: String = "Manager - Data Analytics & BI",
-    val location: String = "Karim Chamber Offices, Karachi"
+    val employeeId: String = "",
+    val name: String = "",
+    val designation: String = "",
+    val location: String = "Karim Chamber Offices, Karachi",
+    val imei: String = ""
 )
 
 data class SocketConfig(

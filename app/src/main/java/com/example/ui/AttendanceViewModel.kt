@@ -64,15 +64,41 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         refreshLocation()
     }
 
+    val pakistanPresets = locationManager.pakistanPresets
+
+    fun hasLocationPermission(): Boolean = locationManager.hasLocationPermission()
+    fun isLocationServiceEnabled(): Boolean = locationManager.isLocationServiceEnabled()
+
+    fun selectLocation(coordinates: Coordinates) {
+        locationManager.setManualOverride(coordinates)
+        _currentCoordinates.value = coordinates
+        val locName = coordinates.addressName ?: coordinates.formatCoordinates()
+        repository.updateProfileLocation(locName)
+        socketClient.addLog(
+            LogDirection.INFO,
+            "Location set to: $locName (${coordinates.formatCoordinates()})"
+        )
+    }
+
+    fun useHardwareGps() {
+        locationManager.setManualOverride(null)
+        refreshLocation()
+    }
+
     fun refreshLocation() {
         viewModelScope.launch {
             _isLoadingLocation.value = true
             try {
                 val coords = locationManager.getCurrentLocation()
                 _currentCoordinates.value = coords
+                if (coords.isRealGps && !coords.addressName.isNullOrBlank()) {
+                    repository.updateProfileLocation(coords.addressName)
+                }
+                val providerStr = coords.provider ?: if (coords.isRealGps) "Real Device GPS" else "Default"
+                val addrStr = coords.addressName?.let { " • $it" } ?: ""
                 socketClient.addLog(
                     LogDirection.INFO,
-                    "Acquired coordinates: Lat ${String.format("%.4f", coords.latitude)}, Lon ${String.format("%.4f", coords.longitude)} (GPS Fix: ${coords.isRealGps})"
+                    "Acquired coordinates: ${coords.formatCoordinates()} (Accuracy: ±${coords.accuracyMeters.toInt()}m, Source: $providerStr$addrStr)"
                 )
             } finally {
                 _isLoadingLocation.value = false
@@ -98,6 +124,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 // Ensure fresh location
                 val coords = locationManager.getCurrentLocation()
                 _currentCoordinates.value = coords
+                val resolvedLocName = coords.addressName ?: employeeProfile.value.location
+                if (coords.isRealGps && !coords.addressName.isNullOrBlank()) {
+                    repository.updateProfileLocation(coords.addressName)
+                }
 
                 val config = socketConfig.value
                 val (success, message) = socketClient.sendAttendance(
@@ -113,7 +143,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     lat = coords.latitude,
                     lon = coords.longitude,
                     txHex = "0x12 GPS Location (ACC ON)",
-                    rxHex = if (success) "Transmitted OK" else message
+                    rxHex = if (success) "Transmitted OK" else message,
+                    locationNameOverride = resolvedLocName
                 )
 
                 _isDialogAlreadyMarked.value = false
@@ -140,6 +171,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 val coords = locationManager.getCurrentLocation()
                 _currentCoordinates.value = coords
+                val resolvedLocName = coords.addressName ?: employeeProfile.value.location
+                if (coords.isRealGps && !coords.addressName.isNullOrBlank()) {
+                    repository.updateProfileLocation(coords.addressName)
+                }
 
                 val config = socketConfig.value
                 val (success, message) = socketClient.sendAttendance(
@@ -154,7 +189,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     lat = coords.latitude,
                     lon = coords.longitude,
                     txHex = "0x12 GPS Location (ACC OFF)",
-                    rxHex = if (success) "Transmitted OK" else message
+                    rxHex = if (success) "Transmitted OK" else message,
+                    locationNameOverride = resolvedLocName
                 )
 
                 _isDialogAlreadyMarked.value = false
@@ -218,6 +254,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     fun updateProfile(profile: EmployeeProfile) {
         repository.updateProfile(profile)
+        socketClient.addLog(
+            LogDirection.INFO,
+            "Employee Profile updated: ${profile.name} (ID: ${profile.employeeId})"
+        )
     }
 
     fun updateSocketConfig(config: SocketConfig) {

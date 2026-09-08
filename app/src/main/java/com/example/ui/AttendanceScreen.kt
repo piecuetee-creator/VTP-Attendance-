@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,10 +25,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -59,6 +65,8 @@ import com.example.ui.components.AttendanceSecondaryActions
 import com.example.ui.components.AttendanceSuccessDialog
 import com.example.ui.components.ConsoleLogSheet
 import com.example.ui.components.CustomerAuthScreen
+import com.example.ui.components.EmployeeProfileDialog
+import com.example.ui.components.LocationSelectionDialog
 import com.example.ui.components.SettingsSheet
 import com.example.ui.theme.BorderSubtle
 import com.example.ui.theme.DIBEmeraldContainer
@@ -97,6 +105,8 @@ fun AttendanceScreen(
 
     var showConsoleSheet by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
+    var showProfileDialog by remember { mutableStateOf(false) }
+    var showLocationPicker by remember { mutableStateOf(false) }
     val consoleSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val settingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
@@ -204,61 +214,138 @@ fun AttendanceScreen(
                 }
             }
 
-            // Employee Welcome Banner
+            // Employee Welcome / Setup Banner
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showProfileDialog = true },
                 shape = RoundedCornerShape(16.dp),
                 color = SurfaceCard,
                 border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
                 shadowElevation = 1.dp
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
+                if (employeeProfile.name.isBlank()) {
+                    Row(
                         modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(DIBEmeraldContainer),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Employee Avatar",
-                            tint = DIBEmeraldPrimary,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(DIBEmeraldContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PersonAdd,
+                                    contentDescription = "Add Profile",
+                                    tint = DIBEmeraldPrimary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(14.dp))
+
+                            Column {
+                                Text(
+                                    text = "Tap to Enter Your Details",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    text = "Set your real name & employee ID",
+                                    fontSize = 12.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { showProfileDialog = true },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = DIBEmeraldPrimary,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text("Set Up", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(DIBEmeraldContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Employee Avatar",
+                                    tint = DIBEmeraldPrimary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
 
-                    Spacer(modifier = Modifier.width(14.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
 
-                    Column {
-                        Text(
-                            text = employeeProfile.name,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "ID: ${employeeProfile.employeeId}",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = DIBEmeraldPrimary
-                            )
-                            Text(
-                                text = " • ",
-                                fontSize = 12.sp,
-                                color = TextSecondary
-                            )
-                            Text(
-                                text = employeeProfile.designation,
-                                fontSize = 12.sp,
-                                color = TextSecondary,
-                                maxLines = 1
+                            Column {
+                                Text(
+                                    text = employeeProfile.name,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "ID: ${employeeProfile.employeeId}",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = DIBEmeraldPrimary
+                                    )
+                                    Text(
+                                        text = " • ",
+                                        fontSize = 12.sp,
+                                        color = TextSecondary
+                                    )
+                                    Text(
+                                        text = employeeProfile.designation,
+                                        fontSize = 12.sp,
+                                        color = TextSecondary,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+
+                        IconButton(
+                            onClick = { showProfileDialog = true },
+                            modifier = Modifier.testTag("edit_profile_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Profile",
+                                tint = DIBEmeraldPrimary,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -280,7 +367,18 @@ fun AttendanceScreen(
                 coordinates = currentCoords,
                 locationName = employeeProfile.location,
                 isLoadingLocation = isLoadingLoc,
-                onRefreshLocation = { viewModel.refreshLocation() }
+                onRefreshLocation = { viewModel.refreshLocation() },
+                onOpenLocationPicker = { showLocationPicker = true },
+                onQuickSwitchToPakistan = { viewModel.selectLocation(viewModel.pakistanPresets[0]) },
+                onRequestPermission = {
+                    locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                },
+                imei = socketConfig.imei
             )
 
             // Reset Biometric & Console Links
@@ -295,6 +393,45 @@ fun AttendanceScreen(
                 onLockSession = { viewModel.logout() }
             )
         }
+    }
+
+    // Employee Profile Setup/Edit Dialog
+    if (showProfileDialog) {
+        EmployeeProfileDialog(
+            currentProfile = employeeProfile,
+            onSaveProfile = { newProfile ->
+                viewModel.updateProfile(newProfile)
+                showProfileDialog = false
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Profile updated: ${newProfile.name}")
+                }
+            },
+            onDismiss = { showProfileDialog = false },
+            isFirstTimeSetup = employeeProfile.name.isBlank()
+        )
+    }
+
+    // Location Selection Dialog
+    if (showLocationPicker) {
+        LocationSelectionDialog(
+            currentCoordinates = currentCoords,
+            pakistanPresets = viewModel.pakistanPresets,
+            onSelectCoordinates = { coords ->
+                viewModel.selectLocation(coords)
+                showLocationPicker = false
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Location set to: ${coords.addressName ?: coords.formatCoordinates()}")
+                }
+            },
+            onUseHardwareGps = {
+                viewModel.useHardwareGps()
+                showLocationPicker = false
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Switched to Live Hardware GPS")
+                }
+            },
+            onDismiss = { showLocationPicker = false }
+        )
     }
 
     // Success Confirmation Dialog (from Screenshot 2)

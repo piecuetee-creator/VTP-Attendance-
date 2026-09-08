@@ -89,7 +89,7 @@ fun AttendanceSuccessDialog(
                 .padding(horizontal = 8.dp)
                 .testTag("attendance_dialog"),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceCard),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
@@ -112,7 +112,7 @@ fun AttendanceSuccessDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close Dialog",
-                            tint = TextSecondary,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -148,7 +148,7 @@ fun AttendanceSuccessDialog(
                     text = headline,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center
                 )
 
@@ -164,7 +164,7 @@ fun AttendanceSuccessDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Employee Detail Card (Matching Screenshot 2)
+                // Employee Detail Card
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -183,7 +183,15 @@ fun AttendanceSuccessDialog(
                         HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
                         ProfileDetailRow(label = "Designation:", value = profile.designation)
                         HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
-                        ProfileDetailRow(label = "Location:", value = profile.location)
+                        val resolvedLocation = record.locationName.ifBlank { profile.location }
+                        ProfileDetailRow(label = "Location:", value = resolvedLocation)
+                        HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
+                        ProfileDetailRow(label = "Phone IMEI:", value = record.imei)
+                        HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
+                        val latDir = if (record.latitude >= 0) "N" else "S"
+                        val lonDir = if (record.longitude >= 0) "E" else "W"
+                        val formattedGps = "${String.format(java.util.Locale.US, "%.5f", Math.abs(record.latitude))}° $latDir, ${String.format(java.util.Locale.US, "%.5f", Math.abs(record.longitude))}° $lonDir"
+                        ProfileDetailRow(label = "GPS Coordinates:", value = formattedGps)
                     }
                 }
 
@@ -293,14 +301,14 @@ private fun ProfileDetailRow(
         Text(
             text = label,
             fontSize = 13.sp,
-            color = TextSecondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Normal,
-            modifier = Modifier.width(100.dp)
+            modifier = Modifier.width(110.dp)
         )
         Text(
             text = value,
             fontSize = 13.sp,
-            color = TextPrimary,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.End,
             modifier = Modifier.weight(1f)

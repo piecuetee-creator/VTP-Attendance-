@@ -168,7 +168,11 @@ class Gt06SocketClient {
             val loginPacket = Gt06Protocol.buildLoginPacket(config.imei, serialLogin)
             val loginHex = Gt06Protocol.bytesToHex(loginPacket)
             _connectionStatus.value = ConnectionStatus.SENDING_LOGIN
-            addLog(LogDirection.TX, "TX Login Packet (Protocol 0x01, ${loginPacket.size} bytes):", loginHex)
+            addLog(
+                LogDirection.TX,
+                "TX GT06 Login Packet (0x01) | Phone IMEI: ${config.imei} (${loginPacket.size} bytes):",
+                loginHex
+            )
 
             ws.send(loginPacket.toByteString())
 
@@ -187,7 +191,7 @@ class Gt06SocketClient {
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
                 LogDirection.TX,
-                "TX Location Packet (Protocol 0x12, ACC=${if (isTimeIn) "1" else "0"}, ${locationPacket.size} bytes):",
+                "TX GT06 Location Packet (0x12) | Lat: $lat, Lon: $lon (ACC=${if (isTimeIn) "1/IN" else "0/OUT"}, ${locationPacket.size} bytes):",
                 locHex
             )
 
@@ -234,7 +238,11 @@ class Gt06SocketClient {
             val loginPacket = Gt06Protocol.buildLoginPacket(config.imei, serialLogin)
             val loginHex = Gt06Protocol.bytesToHex(loginPacket)
             _connectionStatus.value = ConnectionStatus.SENDING_LOGIN
-            addLog(LogDirection.TX, "TX Login Packet (Protocol 0x01, ${loginPacket.size} bytes):", loginHex)
+            addLog(
+                LogDirection.TX,
+                "TX GT06 Login Packet (0x01) | Phone IMEI: ${config.imei} (${loginPacket.size} bytes):",
+                loginHex
+            )
 
             outStream.write(loginPacket)
             outStream.flush()
@@ -268,7 +276,7 @@ class Gt06SocketClient {
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
                 LogDirection.TX,
-                "TX Location Packet (0x12, ACC=${if (isTimeIn) "1" else "0"}, ${locationPacket.size} bytes):",
+                "TX GT06 Location Packet (0x12) | Lat: $lat, Lon: $lon (ACC=${if (isTimeIn) "1/IN" else "0/OUT"}, ${locationPacket.size} bytes):",
                 locHex
             )
 
