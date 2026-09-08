@@ -13,7 +13,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class AttendanceRepository(context: Context) {
+class AttendanceRepository(private val context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("presence_prefs", Context.MODE_PRIVATE)
@@ -21,13 +21,19 @@ class AttendanceRepository(context: Context) {
     private val dateFormat = SimpleDateFormat("dd-MMM-yyyy hh:mm a", Locale.getDefault())
     private val dayKeyFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
 
-    // Auto-detect phone hardware IMEI or persistent device identifier
-    private val initialDeviceImei = prefs.getString("imei", null) ?: DeviceInfoManager.getDeviceImei(context)
+    // Determine initial 15-digit IMEI following the 9902 formula if company/employee codes exist
+    private val savedCompanyCode = prefs.getString("emp_company_code", "") ?: ""
+    private val savedEmployeeCode = prefs.getString("emp_code", "") ?: ""
+    private val initialDeviceImei = if (savedCompanyCode.isNotBlank() && savedEmployeeCode.isNotBlank()) {
+        DeviceInfoManager.buildVtpImei(savedCompanyCode, savedEmployeeCode, context)
+    } else {
+        prefs.getString("imei", null) ?: DeviceInfoManager.buildVtpImei("1001", "0452", context)
+    }
 
     private val _employeeProfile = MutableStateFlow(
         run {
             val rawName = prefs.getString("emp_name", "") ?: ""
-            val rawId = prefs.getString("emp_id", "") ?: ""
+            val rawId = prefs.getString("emp_id", savedEmployeeCode) ?: savedEmployeeCode
             val rawDesig = prefs.getString("emp_desig", "") ?: ""
             val rawLoc = prefs.getString("emp_loc", "") ?: ""
             val rawImei = prefs.getString("emp_imei", initialDeviceImei) ?: initialDeviceImei
@@ -43,7 +49,9 @@ class AttendanceRepository(context: Context) {
                 name = cleanName,
                 designation = cleanDesig,
                 location = cleanLoc,
-                imei = rawImei
+                imei = rawImei,
+                companyCode = savedCompanyCode,
+                employeeCode = savedEmployeeCode
             )
         }
     )
@@ -161,6 +169,31 @@ class AttendanceRepository(context: Context) {
         }
         _lastTimeIn.value = null
         _lastTimeOut.value = null
+    }
+
+    fun loginWithCodes(companyCode: String, employeeCode: String) {
+        val cleanComp = companyCode.filter { it.isDigit() }.padStart(4, '0').takeLast(4)
+        val cleanEmp = employeeCode.filter { it.isDigit() }.padStart(4, '0').takeLast(4)
+        val newImei = DeviceInfoManager.buildVtpImei(cleanComp, cleanEmp, context)
+
+        val current = _employeeProfile.value
+        val updated = current.copy(
+            companyCode = cleanComp,
+            employeeCode = cleanEmp,
+            employeeId = cleanEmp,
+            imei = newImei
+        )
+        _employeeProfile.value = updated
+        _socketConfig.value = _socketConfig.value.copy(imei = newImei)
+
+        prefs.edit().apply {
+            putString("emp_company_code", cleanComp)
+            putString("emp_code", cleanEmp)
+            putString("emp_id", cleanEmp)
+            putString("emp_imei", newImei)
+            putString("imei", newImei)
+            apply()
+        }
     }
 
     fun updateProfile(profile: EmployeeProfile) {

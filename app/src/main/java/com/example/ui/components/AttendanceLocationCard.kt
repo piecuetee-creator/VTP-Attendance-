@@ -47,14 +47,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.location.Coordinates
 import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.DIBEmeraldContainer
-import com.example.ui.theme.DIBEmeraldDark
-import com.example.ui.theme.DIBEmeraldPrimary
-import com.example.ui.theme.DIBGoldAccent
 import com.example.ui.theme.SurfaceCanvas
+import com.example.ui.theme.SurfaceCard
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.TimeInGreen
+import com.example.ui.theme.VtpOrange
+import com.example.ui.theme.VtpOrangeContainer
+import com.example.ui.theme.VtpOrangeDark
 
 @Composable
 fun AttendanceLocationCard(
@@ -97,14 +97,14 @@ fun AttendanceLocationCard(
                             .clip(CircleShape)
                             .background(
                                 if (coordinates.isRealGps && !coordinates.isCloudEmulator) TimeInGreen.copy(alpha = 0.15f)
-                                else DIBEmeraldContainer
+                                else VtpOrangeContainer
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = if (coordinates.isRealGps && !coordinates.isCloudEmulator) Icons.Default.GpsFixed else Icons.Default.LocationOn,
                             contentDescription = "Location Pin",
-                            tint = if (coordinates.isRealGps && !coordinates.isCloudEmulator) TimeInGreen else DIBEmeraldPrimary,
+                            tint = if (coordinates.isRealGps && !coordinates.isCloudEmulator) TimeInGreen else VtpOrange,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -121,7 +121,7 @@ fun AttendanceLocationCard(
                                 text = if (coordinates.isCloudEmulator) "Cloud Virtual GPS (US)" else "Attendance Location",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (coordinates.isCloudEmulator) DIBGoldAccent else if (coordinates.isRealGps) TimeInGreen else TextSecondary
+                                color = if (coordinates.isCloudEmulator) VtpOrange else if (coordinates.isRealGps) TimeInGreen else TextSecondary
                             )
                             if (coordinates.isRealGps && !coordinates.isCloudEmulator) {
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -156,7 +156,7 @@ fun AttendanceLocationCard(
                         Icon(
                             imageVector = Icons.Default.EditLocation,
                             contentDescription = "Change Location",
-                            tint = DIBEmeraldPrimary,
+                            tint = VtpOrange,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -176,14 +176,14 @@ fun AttendanceLocationCard(
                         if (isLoadingLocation) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
-                                color = DIBEmeraldPrimary,
+                                color = VtpOrange,
                                 strokeWidth = 2.dp
                             )
                         } else {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Refresh GPS",
-                                tint = DIBEmeraldPrimary,
+                                tint = VtpOrange,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -213,7 +213,7 @@ fun AttendanceLocationCard(
                         Icon(
                             imageVector = Icons.Default.MyLocation,
                             contentDescription = null,
-                            tint = if (coordinates.isCloudEmulator) DIBGoldAccent else if (coordinates.isRealGps) TimeInGreen else DIBEmeraldPrimary,
+                            tint = if (coordinates.isCloudEmulator) VtpOrange else if (coordinates.isRealGps) TimeInGreen else VtpOrange,
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -230,9 +230,9 @@ fun AttendanceLocationCard(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .background(
-                                if (coordinates.isCloudEmulator) DIBGoldAccent.copy(alpha = 0.18f)
+                                if (coordinates.isCloudEmulator) VtpOrangeContainer
                                 else if (coordinates.isRealGps) TimeInGreen.copy(alpha = 0.12f)
-                                else DIBEmeraldContainer
+                                else VtpOrangeContainer
                             )
                             .padding(horizontal = 7.dp, vertical = 3.dp)
                     ) {
@@ -247,7 +247,7 @@ fun AttendanceLocationCard(
                             },
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (coordinates.isCloudEmulator) DIBEmeraldDark else if (coordinates.isRealGps) TimeInGreen else DIBEmeraldDark
+                            color = if (coordinates.isCloudEmulator) VtpOrangeDark else if (coordinates.isRealGps) TimeInGreen else VtpOrangeDark
                         )
                     }
                 }
@@ -275,7 +275,7 @@ fun AttendanceLocationCard(
                             Icon(
                                 imageVector = Icons.Default.Smartphone,
                                 contentDescription = null,
-                                tint = DIBEmeraldPrimary,
+                                tint = VtpOrange,
                                 modifier = Modifier.size(15.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -291,14 +291,14 @@ fun AttendanceLocationCard(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(DIBEmeraldContainer)
+                                .background(VtpOrangeContainer)
                                 .padding(horizontal = 7.dp, vertical = 3.dp)
                         ) {
                             Text(
-                                text = "GT06 Login (0x01)",
+                                text = "15-Digit Terminal",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = DIBEmeraldDark
+                                color = VtpOrangeDark
                             )
                         }
                     }
@@ -311,15 +311,15 @@ fun AttendanceLocationCard(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    color = DIBGoldAccent.copy(alpha = 0.12f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, DIBGoldAccent.copy(alpha = 0.35f))
+                    color = VtpOrangeContainer.copy(alpha = 0.4f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, VtpOrange.copy(alpha = 0.35f))
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = null,
-                                tint = DIBEmeraldDark,
+                                tint = VtpOrangeDark,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -327,7 +327,7 @@ fun AttendanceLocationCard(
                                 text = "Running in Cloud Web Emulator (US Datacenter)",
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = DIBEmeraldDark
+                                color = VtpOrangeDark
                             )
                         }
                         Spacer(modifier = Modifier.height(3.dp))
@@ -348,11 +348,11 @@ fun AttendanceLocationCard(
                                     .height(34.dp),
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = DIBEmeraldPrimary,
+                                    containerColor = VtpOrange,
                                     contentColor = Color.White
                                 )
                             ) {
-                                Text("🇵🇰 Set to Karachi, Pakistan", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                Text("Set to Karachi, Pakistan", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                             }
 
                             OutlinedButton(
@@ -362,7 +362,7 @@ fun AttendanceLocationCard(
                                     .height(34.dp),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Choose...", fontSize = 11.sp, color = DIBEmeraldDark)
+                                Text("Choose...", fontSize = 11.sp, color = VtpOrangeDark)
                             }
                         }
                     }

@@ -4,8 +4,6 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,17 +22,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -44,9 +46,11 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,20 +67,22 @@ import com.example.ui.components.AttendanceHeader
 import com.example.ui.components.AttendanceLocationCard
 import com.example.ui.components.AttendanceSecondaryActions
 import com.example.ui.components.AttendanceSuccessDialog
+import com.example.ui.components.ConsoleContent
 import com.example.ui.components.ConsoleLogSheet
 import com.example.ui.components.CustomerAuthScreen
 import com.example.ui.components.EmployeeProfileDialog
 import com.example.ui.components.LocationSelectionDialog
+import com.example.ui.components.SettingsContent
 import com.example.ui.components.SettingsSheet
 import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.DIBEmeraldContainer
-import com.example.ui.theme.DIBEmeraldDark
-import com.example.ui.theme.DIBEmeraldPrimary
-import com.example.ui.theme.DIBGoldAccent
 import com.example.ui.theme.SurfaceCanvas
 import com.example.ui.theme.SurfaceCard
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.VtpBlack
+import com.example.ui.theme.VtpOrange
+import com.example.ui.theme.VtpOrangeContainer
+import com.example.ui.theme.VtpOrangeDark
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -102,6 +108,9 @@ fun AttendanceScreen(
     val activeDialogRecord by viewModel.activeDialogRecord.collectAsStateWithLifecycle()
     val isDialogAlreadyMarked by viewModel.isDialogAlreadyMarked.collectAsStateWithLifecycle()
     val authState by viewModel.authState.collectAsStateWithLifecycle()
+
+    // Tab Navigation: 0 = Attendance, 1 = Settings, 2 = Console
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     var showConsoleSheet by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
@@ -142,10 +151,13 @@ fun AttendanceScreen(
         )
     }
 
+    // Login Page: User enters only company and employee code
     if (!authState.isAuthenticated) {
         CustomerAuthScreen(
             employeeProfile = employeeProfile,
-            onLoginSuccess = { viewModel.loginSuccess() },
+            onLoginSuccess = { comp, emp ->
+                viewModel.loginWithCodes(comp, emp)
+            },
             modifier = modifier
         )
         return
@@ -159,239 +171,360 @@ fun AttendanceScreen(
         topBar = {
             AttendanceHeader(
                 connectionStatus = connectionStatus,
-                onOpenTerminal = { showConsoleSheet = true },
-                onOpenSettings = { showSettingsSheet = true },
+                onOpenTerminal = { selectedTab = 2 },
+                onOpenSettings = { selectedTab = 1 },
                 onLock = { viewModel.logout() }
             )
         },
+        bottomBar = {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 4.dp
+            ) {
+                NavigationBarItem(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    icon = { Icon(Icons.Default.Schedule, contentDescription = "Attendance") },
+                    label = {
+                        Text(
+                            text = "Attendance",
+                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 12.sp
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Color.White,
+                        selectedTextColor = VtpOrange,
+                        indicatorColor = VtpOrange
+                    ),
+                    modifier = Modifier.testTag("tab_attendance")
+                )
+
+                NavigationBarItem(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                    label = {
+                        Text(
+                            text = "Settings",
+                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 12.sp
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Color.White,
+                        selectedTextColor = VtpOrange,
+                        indicatorColor = VtpOrange
+                    ),
+                    modifier = Modifier.testTag("tab_settings")
+                )
+
+                NavigationBarItem(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    icon = { Icon(Icons.Default.Terminal, contentDescription = "Console") },
+                    label = {
+                        Text(
+                            text = "Console",
+                            fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 12.sp
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Color.White,
+                        selectedTextColor = VtpOrange,
+                        indicatorColor = VtpOrange
+                    ),
+                    modifier = Modifier.testTag("tab_console")
+                )
+            }
+        },
         containerColor = SurfaceCanvas
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            // Live Date & Time Status Bar
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                color = SurfaceCard,
-                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
-            ) {
-                Row(
+        when (selectedTab) {
+            // TAB 0: ATTENDANCE LANDING PAGE
+            0 -> {
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = null,
-                            tint = DIBEmeraldPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = currentTimeString.ifEmpty { "Loading time..." },
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextSecondary,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(DIBGoldAccent)
-                    )
-                }
-            }
-
-            // Employee Welcome / Setup Banner
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showProfileDialog = true },
-                shape = RoundedCornerShape(16.dp),
-                color = SurfaceCard,
-                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
-                shadowElevation = 1.dp
-            ) {
-                if (employeeProfile.name.isBlank()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    // Live Date & Time Status Bar
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = SurfaceCard,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
                     ) {
                         Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
-                                    .background(DIBEmeraldContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = Icons.Default.PersonAdd,
-                                    contentDescription = "Add Profile",
-                                    tint = DIBEmeraldPrimary,
-                                    modifier = Modifier.size(24.dp)
+                                    imageVector = Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    tint = VtpOrange,
+                                    modifier = Modifier.size(16.dp)
                                 )
-                            }
-
-                            Spacer(modifier = Modifier.width(14.dp))
-
-                            Column {
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Tap to Enter Your Details",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
-                                )
-                                Text(
-                                    text = "Set your real name & employee ID",
+                                    text = currentTimeString.ifEmpty { "Loading time..." },
                                     fontSize = 12.sp,
-                                    color = TextSecondary
+                                    fontWeight = FontWeight.Medium,
+                                    color = TextSecondary,
+                                    fontFamily = FontFamily.Monospace
                                 )
                             }
-                        }
 
-                        Button(
-                            onClick = { showProfileDialog = true },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = DIBEmeraldPrimary,
-                                contentColor = Color.White
-                            )
-                        ) {
-                            Text("Set Up", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
                             Box(
                                 modifier = Modifier
-                                    .size(46.dp)
+                                    .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(DIBEmeraldContainer),
-                                contentAlignment = Alignment.Center
+                                    .background(VtpOrange)
+                            )
+                        }
+                    }
+
+                    // Employee Welcome / Setup Banner
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showProfileDialog = true },
+                        shape = RoundedCornerShape(16.dp),
+                        color = SurfaceCard,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+                        shadowElevation = 1.dp
+                    ) {
+                        if (employeeProfile.name.isBlank()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "Employee Avatar",
-                                    tint = DIBEmeraldPrimary,
-                                    modifier = Modifier.size(24.dp)
-                                )
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(CircleShape)
+                                            .background(VtpOrangeContainer),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PersonAdd,
+                                            contentDescription = "Add Profile",
+                                            tint = VtpOrange,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(14.dp))
+
+                                    Column {
+                                        Text(
+                                            text = "Employee Setup",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary
+                                        )
+                                        Text(
+                                            text = "Company: ${employeeProfile.companyCode.ifBlank { "1001" }} • ID: ${employeeProfile.employeeCode.ifBlank { "0452" }}",
+                                            fontSize = 12.sp,
+                                            color = TextSecondary
+                                        )
+                                    }
+                                }
+
+                                Button(
+                                    onClick = { showProfileDialog = true },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = VtpOrange,
+                                        contentColor = Color.White
+                                    )
+                                ) {
+                                    Text("Set Up", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(CircleShape)
+                                            .background(VtpOrangeContainer),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "Employee Avatar",
+                                            tint = VtpOrange,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
 
-                            Spacer(modifier = Modifier.width(14.dp))
+                                    Spacer(modifier = Modifier.width(14.dp))
 
-                            Column {
-                                Text(
-                                    text = employeeProfile.name,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
-                                )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "ID: ${employeeProfile.employeeId}",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = DIBEmeraldPrimary
-                                    )
-                                    Text(
-                                        text = " • ",
-                                        fontSize = 12.sp,
-                                        color = TextSecondary
-                                    )
-                                    Text(
-                                        text = employeeProfile.designation,
-                                        fontSize = 12.sp,
-                                        color = TextSecondary,
-                                        maxLines = 1
+                                    Column {
+                                        Text(
+                                            text = employeeProfile.name,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary
+                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = "ID: ${employeeProfile.employeeId}",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = VtpOrange
+                                            )
+                                            Text(
+                                                text = " • ",
+                                                fontSize = 12.sp,
+                                                color = TextSecondary
+                                            )
+                                            Text(
+                                                text = employeeProfile.designation,
+                                                fontSize = 12.sp,
+                                                color = TextSecondary,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = { showProfileDialog = true },
+                                    modifier = Modifier.testTag("edit_profile_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit Profile",
+                                        tint = VtpOrange,
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
                         }
-
-                        IconButton(
-                            onClick = { showProfileDialog = true },
-                            modifier = Modifier.testTag("edit_profile_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Edit Profile",
-                                tint = DIBEmeraldPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
                     }
+
+                    // Attendance Action Cards: Time In & Time Out ONLY (No Ignition ON/OFF)
+                    AttendanceActionCards(
+                        lastTimeIn = lastTimeIn,
+                        lastTimeOut = lastTimeOut,
+                        isProcessingTimeIn = isProcTimeIn,
+                        isProcessingTimeOut = isProcTimeOut,
+                        onTimeInClick = { viewModel.onTimeInClicked() },
+                        onTimeOutClick = { viewModel.onTimeOutClicked() }
+                    )
+
+                    // Location Card
+                    AttendanceLocationCard(
+                        coordinates = currentCoords,
+                        locationName = employeeProfile.location,
+                        isLoadingLocation = isLoadingLoc,
+                        onRefreshLocation = { viewModel.refreshLocation() },
+                        onOpenLocationPicker = { showLocationPicker = true },
+                        onQuickSwitchToPakistan = { viewModel.selectLocation(viewModel.pakistanPresets[0]) },
+                        onRequestPermission = {
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        },
+                        imei = socketConfig.imei
+                    )
+
+                    // Secondary Actions: Reset & Lock
+                    AttendanceSecondaryActions(
+                        onResetBiometric = {
+                            viewModel.resetBiometric()
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Attendance records reset for today.")
+                            }
+                        },
+                        onOpenConsole = { selectedTab = 2 },
+                        onLockSession = { viewModel.logout() }
+                    )
                 }
             }
 
-            // Attendance Action Cards: Time In & Time Out
-            AttendanceActionCards(
-                lastTimeIn = lastTimeIn,
-                lastTimeOut = lastTimeOut,
-                isProcessingTimeIn = isProcTimeIn,
-                isProcessingTimeOut = isProcTimeOut,
-                onTimeInClick = { viewModel.onTimeInClicked() },
-                onTimeOutClick = { viewModel.onTimeOutClicked() }
-            )
-
-            // Location Card
-            AttendanceLocationCard(
-                coordinates = currentCoords,
-                locationName = employeeProfile.location,
-                isLoadingLocation = isLoadingLoc,
-                onRefreshLocation = { viewModel.refreshLocation() },
-                onOpenLocationPicker = { showLocationPicker = true },
-                onQuickSwitchToPakistan = { viewModel.selectLocation(viewModel.pakistanPresets[0]) },
-                onRequestPermission = {
-                    locationPermissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        )
+            // TAB 1: SETTINGS (I.P., Server, Port, WebSocket, 15-Digit Terminal IMEI)
+            1 -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
+                    SettingsContent(
+                        profile = employeeProfile,
+                        config = socketConfig,
+                        onSaveProfile = { newProfile ->
+                            viewModel.updateProfile(newProfile)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Profile saved successfully")
+                            }
+                        },
+                        onSaveConfig = { newConfig ->
+                            viewModel.updateSocketConfig(newConfig)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Server & Terminal config saved successfully")
+                            }
+                        },
+                        onTestConnection = {
+                            viewModel.sendTestLoginPacket()
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Testing connection to ${socketConfig.tcpHost}:${socketConfig.tcpPort}...")
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
                     )
-                },
-                imei = socketConfig.imei
-            )
+                }
+            }
 
-            // Reset Biometric & Console Links
-            AttendanceSecondaryActions(
-                onResetBiometric = {
-                    viewModel.resetBiometric()
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("Biometric attendance cache cleared for today.")
-                    }
-                },
-                onOpenConsole = { showConsoleSheet = true },
-                onLockSession = { viewModel.logout() }
-            )
+            // TAB 2: LIVE CONSOLE LOGS
+            2 -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                ) {
+                    ConsoleContent(
+                        logs = logs,
+                        connectionStatus = connectionStatus,
+                        targetUrl = if (socketConfig.useWebSocket) socketConfig.wsUrl else "${socketConfig.tcpHost}:${socketConfig.tcpPort}",
+                        onClearLogs = { viewModel.clearLogs() },
+                        onSendTestLogin = { viewModel.sendTestLoginPacket() },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
         }
     }
 
@@ -434,7 +567,7 @@ fun AttendanceScreen(
         )
     }
 
-    // Success Confirmation Dialog (from Screenshot 2)
+    // Success Confirmation Dialog
     activeDialogRecord?.let { record ->
         AttendanceSuccessDialog(
             record = record,
@@ -444,7 +577,7 @@ fun AttendanceScreen(
         )
     }
 
-    // Live Socket Console Sheet
+    // Modal Bottom Sheets for direct deep-links if triggered
     if (showConsoleSheet) {
         ConsoleLogSheet(
             logs = logs,
@@ -457,7 +590,6 @@ fun AttendanceScreen(
         )
     }
 
-    // Settings & Profile Sheet
     if (showSettingsSheet) {
         SettingsSheet(
             profile = employeeProfile,

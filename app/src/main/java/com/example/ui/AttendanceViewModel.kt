@@ -52,7 +52,13 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     private val _isDialogAlreadyMarked = MutableStateFlow(false)
     val isDialogAlreadyMarked: StateFlow<Boolean> = _isDialogAlreadyMarked.asStateFlow()
 
-    private val _authState = MutableStateFlow(AuthState(isAuthenticated = true))
+    private val _authState = MutableStateFlow(
+        AuthState(
+            isAuthenticated = repository.employeeProfile.value.companyCode.isNotBlank() &&
+                    repository.employeeProfile.value.employeeCode.isNotBlank(),
+            employeeId = repository.employeeProfile.value.employeeCode
+        )
+    )
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
     init {
@@ -142,7 +148,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     type = AttendanceType.TIME_IN,
                     lat = coords.latitude,
                     lon = coords.longitude,
-                    txHex = "0x12 GPS Location (ACC ON)",
+                    txHex = "0x12 GPS Location",
                     rxHex = if (success) "Transmitted OK" else message,
                     locationNameOverride = resolvedLocName
                 )
@@ -188,7 +194,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     type = AttendanceType.TIME_OUT,
                     lat = coords.latitude,
                     lon = coords.longitude,
-                    txHex = "0x12 GPS Location (ACC OFF)",
+                    txHex = "0x12 GPS Location",
                     rxHex = if (success) "Transmitted OK" else message,
                     locationNameOverride = resolvedLocName
                 )
@@ -226,6 +232,20 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     fun clearLogs() {
         socketClient.clearLogs()
+    }
+
+    fun loginWithCodes(companyCode: String, employeeCode: String) {
+        repository.loginWithCodes(companyCode, employeeCode)
+        _authState.value = AuthState(
+            isAuthenticated = true,
+            employeeId = employeeCode,
+            loginTime = System.currentTimeMillis()
+        )
+        val config = repository.socketConfig.value
+        socketClient.addLog(
+            LogDirection.INFO,
+            "Logged in | Company: $companyCode, Employee: $employeeCode | 15-Digit IMEI: ${config.imei}"
+        )
     }
 
     fun loginSuccess(employeeId: String? = null) {

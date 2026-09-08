@@ -76,6 +76,41 @@ object DeviceInfoManager {
     }
 
     /**
+     * Builds a 15-digit IMEI adhering strictly to the user's specification:
+     * - "99" : Fixed starting of IMEI (2 digits)
+     * - "02" : Product Fixed code (2 digits)
+     * - "xxxx" : Company code (4 digits, numeric)
+     * - "xxxx" : Employee code (4 digits, numeric)
+     * - "xxx"  : Random numbers (3 digits, device-persisted)
+     * Pattern: 9902xxxxxxxxxxx (Total = 2 + 2 + 4 + 4 + 3 = 15 digits)
+     */
+    fun buildVtpImei(
+        companyCode: String,
+        employeeCode: String,
+        context: Context? = null
+    ): String {
+        val cleanComp = companyCode.filter { it.isDigit() }.padStart(4, '0').takeLast(4)
+        val cleanEmp = employeeCode.filter { it.isDigit() }.padStart(4, '0').takeLast(4)
+        val rand = if (context != null) {
+            getSavedRandomSuffix(context)
+        } else {
+            "875"
+        }
+        return "9902$cleanComp$cleanEmp$rand"
+    }
+
+    fun getSavedRandomSuffix(context: Context): String {
+        val prefs = context.getSharedPreferences("vtp_device_prefs", Context.MODE_PRIVATE)
+        var suffix = prefs.getString("vtp_imei_rand_suffix", null)
+        if (suffix.isNullOrBlank() || suffix.length != 3 || !suffix.all { it.isDigit() }) {
+            val generated = (100..999).random().toString()
+            prefs.edit().putString("vtp_imei_rand_suffix", generated).apply()
+            suffix = generated
+        }
+        return suffix
+    }
+
+    /**
      * Cleans and validates a 15-digit IMEI string.
      */
     fun sanitizeImei(input: String): String {

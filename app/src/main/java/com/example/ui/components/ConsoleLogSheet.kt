@@ -23,16 +23,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,14 +51,11 @@ import com.example.network.ConnectionStatus
 import com.example.ui.theme.ConsoleBackground
 import com.example.ui.theme.ConsoleCyan
 import com.example.ui.theme.ConsoleGreen
-import com.example.ui.theme.DIBEmeraldPrimary
-import com.example.ui.theme.DIBGoldAccent
-import com.example.ui.theme.DIBGoldLight
 import com.example.ui.theme.SurfaceCard
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.TimeInGreen
-import com.example.ui.theme.TimeOutAmber
+import com.example.ui.theme.VtpOrange
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,18 +68,10 @@ fun ConsoleLogSheet(
     onDismiss: () -> Unit,
     sheetState: SheetState
 ) {
-    val listState = rememberLazyListState()
-
-    LaunchedEffect(logs.size) {
-        if (logs.isNotEmpty()) {
-            listState.animateScrollToItem(logs.size - 1)
-        }
-    }
-
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = SurfaceCard,
+        containerColor = MaterialTheme.colorScheme.surface,
         modifier = Modifier.testTag("console_bottom_sheet")
     ) {
         Column(
@@ -119,67 +106,92 @@ fun ConsoleLogSheet(
 
                     Column {
                         Text(
-                            text = "Console Output Log",
+                            text = "Socket Terminal Log",
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = targetUrl,
                             fontSize = 12.sp,
-                            color = TextSecondary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontFamily = FontFamily.Monospace
                         )
                     }
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = onClearLogs,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ClearAll,
-                            contentDescription = "Clear Logs",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close Sheet",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close Sheet",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Action Bar with Test Login and Status Chip
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Button(
-                    onClick = onSendTestLogin,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = DIBEmeraldPrimary),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    modifier = Modifier.height(34.dp)
-                ) {
-                    Icon(imageVector = Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Send Test Login (0x01)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
+            ConsoleContent(
+                logs = logs,
+                connectionStatus = connectionStatus,
+                targetUrl = targetUrl,
+                onClearLogs = onClearLogs,
+                onSendTestLogin = onSendTestLogin,
+                modifier = Modifier.weight(1f)
+            )
 
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+/**
+ * Reusable Console Component for both Sheet and dedicated Console Tab.
+ */
+@Composable
+fun ConsoleContent(
+    logs: List<SocketLogEntry>,
+    connectionStatus: ConnectionStatus,
+    targetUrl: String,
+    onClearLogs: () -> Unit,
+    onSendTestLogin: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(logs.size) {
+        if (logs.isNotEmpty()) {
+            listState.animateScrollToItem(logs.size - 1)
+        }
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Action Bar with Test Login, Status Chip & Clear
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(
+                onClick = onSendTestLogin,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = VtpOrange,
+                    contentColor = Color.White
+                ),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.height(36.dp)
+            ) {
+                Icon(imageVector = Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = "Send Login (0x01)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 val statusLabel = when (connectionStatus) {
                     ConnectionStatus.CONNECTED, ConnectionStatus.SUCCESS -> "Connected"
                     ConnectionStatus.CONNECTING, ConnectionStatus.SENDING_LOGIN, ConnectionStatus.SENDING_LOCATION -> "Connecting"
@@ -189,7 +201,7 @@ fun ConsoleLogSheet(
 
                 val statusColor = when (connectionStatus) {
                     ConnectionStatus.CONNECTED, ConnectionStatus.SUCCESS -> TimeInGreen
-                    ConnectionStatus.CONNECTING, ConnectionStatus.SENDING_LOGIN, ConnectionStatus.SENDING_LOCATION -> DIBGoldAccent
+                    ConnectionStatus.CONNECTING, ConnectionStatus.SENDING_LOGIN, ConnectionStatus.SENDING_LOCATION -> VtpOrange
                     ConnectionStatus.ERROR -> Color(0xFFEF4444)
                     else -> Color(0xFF94A3B8)
                 }
@@ -215,48 +227,60 @@ fun ConsoleLogSheet(
                         color = statusColor
                     )
                 }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                IconButton(
+                    onClick = onClearLogs,
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ClearAll,
+                        contentDescription = "Clear Logs",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
+        }
 
-            Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-            // Terminal Screen
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, Color(0xFF243B30), RoundedCornerShape(12.dp)),
-                color = ConsoleBackground
-            ) {
-                if (logs.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Socket console is active.\nTap Time In, Time Out, or Test Login to transmit GT06 packets.",
-                            color = Color(0xFF64748B),
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(logs, key = { it.id }) { log ->
-                            ConsoleLogItem(log)
-                        }
+        // Terminal Output Screen
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = true)
+                .clip(RoundedCornerShape(12.dp))
+                .border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(12.dp)),
+            color = ConsoleBackground
+        ) {
+            if (logs.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "GT06 Terminal Ready ($targetUrl)\nTap Time In, Time Out, or Send Login to transmit packets.",
+                        color = Color(0xFF888888),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(logs, key = { it.id }) { log ->
+                        ConsoleLogItem(log)
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -266,7 +290,7 @@ private fun ConsoleLogItem(log: SocketLogEntry) {
     val tagColor = when (log.direction) {
         LogDirection.TX -> TimeInGreen
         LogDirection.RX -> ConsoleCyan
-        LogDirection.INFO -> DIBGoldLight
+        LogDirection.INFO -> VtpOrange
         LogDirection.ERROR -> Color(0xFFF87171)
     }
 
@@ -278,7 +302,7 @@ private fun ConsoleLogItem(log: SocketLogEntry) {
                 text = "[${log.timestamp}]",
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
-                color = Color(0xFF64748B)
+                color = Color(0xFF888888)
             )
             Spacer(modifier = Modifier.width(6.dp))
             Box(
@@ -300,7 +324,7 @@ private fun ConsoleLogItem(log: SocketLogEntry) {
                 text = log.message,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
-                color = Color(0xFFE2E8F0)
+                color = Color(0xFFF0F0F0)
             )
         }
 
@@ -308,7 +332,7 @@ private fun ConsoleLogItem(log: SocketLogEntry) {
             Spacer(modifier = Modifier.height(3.dp))
             Surface(
                 shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF07110C),
+                color = Color(0xFF000000),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(

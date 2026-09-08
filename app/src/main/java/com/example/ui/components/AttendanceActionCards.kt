@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -96,7 +97,6 @@ fun AttendanceActionCards(
             // TIME IN CARD (Left)
             AttendanceGridCard(
                 title = "Time In",
-                statusLabel = if (lastTimeIn != null) "Marked" else "ACC ON",
                 isTimeIn = true,
                 markedRecord = lastTimeIn,
                 isProcessing = isProcessingTimeIn,
@@ -108,7 +108,6 @@ fun AttendanceActionCards(
             // TIME OUT CARD (Right)
             AttendanceGridCard(
                 title = "Time Out",
-                statusLabel = if (lastTimeOut != null) "Marked" else "ACC OFF",
                 isTimeIn = false,
                 markedRecord = lastTimeOut,
                 isProcessing = isProcessingTimeOut,
@@ -123,7 +122,6 @@ fun AttendanceActionCards(
 @Composable
 private fun AttendanceGridCard(
     title: String,
-    statusLabel: String,
     isTimeIn: Boolean,
     markedRecord: AttendanceRecord?,
     isProcessing: Boolean,
@@ -142,9 +140,9 @@ private fun AttendanceGridCard(
         label = "cardScale"
     )
 
-    val primaryColor = if (isTimeIn) TimeInGreen else TimeOutAmber
-    val containerBg = if (isTimeIn) TimeInGreenContainer else TimeOutAmberContainer
-    val borderColor = if (isTimeIn) TimeInGreenBorder else TimeOutAmberBorder
+    val primaryColor = if (isTimeIn) TimeInGreen else MaterialTheme.colorScheme.onSurface
+    val containerBg = if (isTimeIn) TimeInGreenContainer else MaterialTheme.colorScheme.surfaceVariant
+    val borderColor = if (isTimeIn) TimeInGreenBorder else MaterialTheme.colorScheme.outline
     val iconVector = if (isTimeIn) Icons.Default.PlayArrow else Icons.Default.Stop
 
     Surface(
@@ -171,7 +169,7 @@ private fun AttendanceGridCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 20.dp, horizontal = 12.dp),
+                .padding(vertical = 22.dp, horizontal = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -219,7 +217,7 @@ private fun AttendanceGridCard(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Status Badge / Time
             if (markedRecord != null) {
@@ -228,7 +226,7 @@ private fun AttendanceGridCard(
                         .clip(RoundedCornerShape(12.dp))
                         .background(containerBg)
                         .border(1.dp, borderColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -240,7 +238,7 @@ private fun AttendanceGridCard(
                             tint = primaryColor,
                             modifier = Modifier.size(12.dp)
                         )
-                        Spacer(modifier = Modifier.width(3.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = markedRecord.formattedDateTime.substringAfter(" "),
                             color = primaryColor,
@@ -251,22 +249,12 @@ private fun AttendanceGridCard(
                 }
             } else {
                 Text(
-                    text = "Tap to Mark",
+                    text = "Tap to Record",
                     fontSize = 12.sp,
                     color = primaryColor,
                     fontWeight = FontWeight.SemiBold
                 )
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // GT06 Protocol ACC Status Subtitle
-            Text(
-                text = if (isTimeIn) "Ignition ON (GT06)" else "Ignition OFF (GT06)",
-                fontSize = 10.sp,
-                color = TextSecondary,
-                fontWeight = FontWeight.Medium
-            )
         }
     }
 }
