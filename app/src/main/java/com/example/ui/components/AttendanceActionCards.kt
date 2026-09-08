@@ -22,10 +22,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Login
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -46,16 +46,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.AttendanceRecord
-import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.SurfaceCard
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.TimeInGreen
-import com.example.ui.theme.TimeInGreenBorder
-import com.example.ui.theme.TimeInGreenContainer
-import com.example.ui.theme.TimeOutAmber
-import com.example.ui.theme.TimeOutAmberBorder
-import com.example.ui.theme.TimeOutAmberContainer
+import com.example.ui.theme.VtpOrange
+import com.example.ui.theme.VtpOrangeDark
+import com.example.ui.theme.VtpOrangeLight
 
 @Composable
 fun AttendanceActionCards(
@@ -71,32 +66,73 @@ fun AttendanceActionCards(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Section Header (matching Screenshot 1 pattern)
+        // Section Header with Accent Gradient Pill
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            VtpOrange.copy(alpha = 0.12f),
+                            VtpOrangeLight.copy(alpha = 0.22f),
+                            VtpOrange.copy(alpha = 0.12f)
+                        )
+                    )
+                )
+                .border(
+                    1.dp,
+                    Brush.horizontalGradient(
+                        listOf(VtpOrange.copy(alpha = 0.25f), VtpOrangeLight.copy(alpha = 0.6f), VtpOrange.copy(alpha = 0.25f))
+                    ),
+                    RoundedCornerShape(20.dp)
+                )
+                .padding(horizontal = 14.dp, vertical = 5.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Schedule,
+                    contentDescription = null,
+                    tint = VtpOrange,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Daily Attendance Punch",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = VtpOrangeDark,
+                    letterSpacing = 0.4.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Text(
-            text = "Attendance",
+            text = "Mark Attendance",
             fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Black,
             color = TextPrimary,
-            letterSpacing = 0.2.sp,
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+            letterSpacing = (-0.3).sp
         )
 
         Text(
-            text = "Please select an option to mark your attendance",
-            fontSize = 13.sp,
+            text = "Tap your punch action below to send encrypted GT06 packet",
+            fontSize = 12.5.sp,
             color = TextSecondary,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(bottom = 18.dp)
+            modifier = Modifier.padding(top = 2.dp, bottom = 18.dp)
         )
 
-        // Action Cards: Time In & Time Out side-by-side in a Row
+        // Action Cards: Time In & Time Out side-by-side with Rich Gradients
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // TIME IN CARD (Left)
-            AttendanceGridCard(
+            // TIME IN CARD (Vibrant Sunrise Orange Gradient)
+            AttendanceGradientCard(
                 title = "Time In",
+                subtitle = if (lastTimeIn != null) "Punched Today" else "Start Shift",
                 isTimeIn = true,
                 markedRecord = lastTimeIn,
                 isProcessing = isProcessingTimeIn,
@@ -105,9 +141,10 @@ fun AttendanceActionCards(
                 modifier = Modifier.weight(1f)
             )
 
-            // TIME OUT CARD (Right)
-            AttendanceGridCard(
+            // TIME OUT CARD (Obsidian Black & Charcoal Gradient)
+            AttendanceGradientCard(
                 title = "Time Out",
+                subtitle = if (lastTimeOut != null) "Punched Today" else "End Shift",
                 isTimeIn = false,
                 markedRecord = lastTimeOut,
                 isProcessing = isProcessingTimeOut,
@@ -120,8 +157,9 @@ fun AttendanceActionCards(
 }
 
 @Composable
-private fun AttendanceGridCard(
+private fun AttendanceGradientCard(
     title: String,
+    subtitle: String,
     isTimeIn: Boolean,
     markedRecord: AttendanceRecord?,
     isProcessing: Boolean,
@@ -132,7 +170,7 @@ private fun AttendanceGridCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
+        targetValue = if (isPressed) 0.96f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -140,22 +178,79 @@ private fun AttendanceGridCard(
         label = "cardScale"
     )
 
-    val primaryColor = if (isTimeIn) TimeInGreen else MaterialTheme.colorScheme.onSurface
-    val containerBg = if (isTimeIn) TimeInGreenContainer else MaterialTheme.colorScheme.surfaceVariant
-    val borderColor = if (isTimeIn) TimeInGreenBorder else MaterialTheme.colorScheme.outline
-    val iconVector = if (isTimeIn) Icons.Default.PlayArrow else Icons.Default.Stop
+    // Gradient styling definitions
+    val cardBackgroundGradient = if (isTimeIn) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFFFFFF),
+                Color(0xFFFFF7ED),
+                Color(0xFFFFEDD5)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFFFFFF),
+                Color(0xFFF9FAFB),
+                Color(0xFFF3F4F6)
+            )
+        )
+    }
+
+    val cardBorderGradient = if (isTimeIn) {
+        Brush.linearGradient(
+            colors = listOf(
+                Color(0xFFFF6600),
+                Color(0xFFFFA040),
+                Color(0xFFFF6600)
+            )
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(
+                Color(0xFF27272A),
+                Color(0xFF52525B),
+                Color(0xFF27272A)
+            )
+        )
+    }
+
+    val iconContainerGradient = if (isTimeIn) {
+        Brush.linearGradient(
+            colors = listOf(
+                Color(0xFFFF4500),
+                Color(0xFFFF6600),
+                Color(0xFFFFA040)
+            )
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(
+                Color(0xFF27272A),
+                Color(0xFF18181B),
+                Color(0xFF0C0A09)
+            )
+        )
+    }
+
+    val glowShadowColor = if (isTimeIn) Color(0xFFFF6600) else Color(0xFF18181B)
+    val iconVector = if (isTimeIn) Icons.Default.Login else Icons.Default.Logout
 
     Surface(
         modifier = modifier
             .scale(scale)
             .shadow(
-                elevation = if (isPressed) 2.dp else 4.dp,
-                shape = RoundedCornerShape(20.dp),
-                ambientColor = primaryColor.copy(alpha = 0.15f),
-                spotColor = primaryColor.copy(alpha = 0.2f)
+                elevation = if (isPressed) 2.dp else 6.dp,
+                shape = RoundedCornerShape(22.dp),
+                ambientColor = glowShadowColor.copy(alpha = 0.25f),
+                spotColor = glowShadowColor.copy(alpha = 0.35f)
             )
-            .clip(RoundedCornerShape(20.dp))
-            .border(1.5.dp, borderColor.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(22.dp))
+            .border(
+                width = if (isTimeIn) 1.8.dp else 1.4.dp,
+                brush = cardBorderGradient,
+                shape = RoundedCornerShape(22.dp)
+            )
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -163,97 +258,154 @@ private fun AttendanceGridCard(
                 onClick = onClick
             )
             .testTag(testTag),
-        color = SurfaceCard,
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(22.dp),
+        color = Color.Transparent
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 22.dp, horizontal = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .background(cardBackgroundGradient)
+                .padding(vertical = 22.dp, horizontal = 14.dp)
         ) {
-            // Circle Icon Container
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(containerBg)
-                    .border(2.dp, primaryColor.copy(alpha = 0.35f), CircleShape),
-                contentAlignment = Alignment.Center
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                if (isProcessing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(30.dp),
-                        color = primaryColor,
-                        strokeWidth = 3.dp
-                    )
+                // Radiant Icon Aura Ring
+                Box(
+                    modifier = Modifier
+                        .size(68.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isTimeIn) Color(0xFFFF6600).copy(alpha = 0.12f)
+                            else Color(0xFF27272A).copy(alpha = 0.08f)
+                        )
+                        .border(
+                            1.5.dp,
+                            if (isTimeIn) Color(0xFFFF6600).copy(alpha = 0.25f)
+                            else Color(0xFF27272A).copy(alpha = 0.15f),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(32.dp),
+                            color = if (isTimeIn) VtpOrange else Color(0xFF18181B),
+                            strokeWidth = 3.dp
+                        )
+                    } else {
+                        // Inner Gradient Circle
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(iconContainerGradient)
+                                .shadow(4.dp, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = iconVector,
+                                contentDescription = title,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Card Action Title
+                Text(
+                    text = title,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Black,
+                    color = TextPrimary,
+                    textAlign = TextAlign.Center,
+                    letterSpacing = (-0.2).sp
+                )
+
+                Text(
+                    text = subtitle,
+                    fontSize = 11.5.sp,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Status Pill / Timestamp with Gradient Accent
+                if (markedRecord != null) {
+                    val recordTime = markedRecord.formattedDateTime.substringAfter(" ")
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                if (isTimeIn) {
+                                    Brush.horizontalGradient(
+                                        listOf(Color(0xFFEA580C), Color(0xFFFF6600))
+                                    )
+                                } else {
+                                    Brush.horizontalGradient(
+                                        listOf(Color(0xFF27272A), Color(0xFF18181B))
+                                    )
+                                }
+                            )
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = recordTime,
+                                color = Color.White,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            )
+                        }
+                    }
                 } else {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(primaryColor),
-                        contentAlignment = Alignment.Center
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                if (isTimeIn) {
+                                    Brush.horizontalGradient(
+                                        listOf(Color(0xFFFF6600).copy(alpha = 0.15f), Color(0xFFFF8533).copy(alpha = 0.25f))
+                                    )
+                                } else {
+                                    Brush.horizontalGradient(
+                                        listOf(Color(0xFF27272A).copy(alpha = 0.10f), Color(0xFF52525B).copy(alpha = 0.18f))
+                                    )
+                                }
+                            )
+                            .border(
+                                1.dp,
+                                if (isTimeIn) Color(0xFFFF6600).copy(alpha = 0.4f)
+                                else Color(0xFF52525B).copy(alpha = 0.3f),
+                                RoundedCornerShape(14.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Icon(
-                            imageVector = iconVector,
-                            contentDescription = title,
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Card Title (Time In / Time Out)
-            Text(
-                text = title,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Status Badge / Time
-            if (markedRecord != null) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(containerBg)
-                        .border(1.dp, borderColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            tint = primaryColor,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = markedRecord.formattedDateTime.substringAfter(" "),
-                            color = primaryColor,
-                            fontSize = 11.sp,
+                            text = "Tap to Record",
+                            fontSize = 11.5.sp,
+                            color = if (isTimeIn) VtpOrangeDark else Color(0xFF18181B),
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
-            } else {
-                Text(
-                    text = "Tap to Record",
-                    fontSize = 12.sp,
-                    color = primaryColor,
-                    fontWeight = FontWeight.SemiBold
-                )
             }
         }
     }

@@ -29,8 +29,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -53,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -65,22 +64,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.EmployeeProfile
-import com.example.ui.theme.BorderSubtle
-import com.example.ui.theme.SurfaceCanvas
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VtpBlack
 import com.example.ui.theme.VtpOrange
-import com.example.ui.theme.VtpOrangeContainer
 import com.example.ui.theme.VtpOrangeDark
+import com.example.ui.theme.VtpOrangeGradient
+import com.example.ui.theme.VtpOrangeLight
 import com.example.ui.theme.vtpTextFieldColors
 import com.example.util.DeviceInfoManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Clean login page following user specification:
+ * Clean login page with luxurious radiant gradient styling.
  * "User will enter only company and employee code. nothing else."
  * Automatically computes 15-digit IMEI: 99 + 02 + [company 4 digits] + [employee 4 digits] + [random 3 digits]
  */
@@ -125,296 +119,349 @@ fun CustomerAuthScreen(
 
     Surface(
         modifier = modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+        color = Color(0xFF0F0D0C)
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Brand Logo / Icon in Orange, Black & White
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(VtpOrange)
-                    .shadow(8.dp, RoundedCornerShape(24.dp), ambientColor = VtpOrange, spotColor = VtpOrange),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Badge,
-                    contentDescription = "Presence Logo",
-                    tint = Color.White,
-                    modifier = Modifier.size(44.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF241D17),
+                            Color(0xFF161310),
+                            Color(0xFF0B0A09)
+                        )
+                    )
                 )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Text(
-                text = "Presence Attendance",
-                fontSize = 26.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onBackground,
-                letterSpacing = (-0.5).sp
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "Sign in with your Company & Employee codes",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // Main Input Card
-            Card(
+        ) {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp)),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Column(
+                // Radiant Gradient Logo Icon with Glow Ring
+                Box(
+                    modifier = Modifier
+                        .size(86.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFF6600).copy(alpha = 0.15f))
+                        .border(1.5.dp, Color(0xFFFF6600).copy(alpha = 0.3f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(Color(0xFFFF3D00), Color(0xFFFF6600), Color(0xFFFFA040))
+                                )
+                            )
+                            .shadow(12.dp, RoundedCornerShape(20.dp), ambientColor = VtpOrange, spotColor = VtpOrange),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Badge,
+                            contentDescription = "Presence Logo",
+                            tint = Color.White,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Brand Title
+                Text(
+                    text = "Presence Attendance",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White,
+                    letterSpacing = (-0.5).sp
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Enter your Company & Employee codes to authenticate",
+                    fontSize = 13.5.sp,
+                    color = Color(0xFFB8AEA5),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(28.dp))
+
+                // Main Input Card with Gradient Glass Border
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
-                ) {
-                    // 1. Company Code (xxxx)
-                    Column {
-                        Text(
-                            text = "Company Code",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
-
-                        OutlinedTextField(
-                            value = companyCode,
-                            onValueChange = { input ->
-                                val clean = input.filter { it.isDigit() }.take(4)
-                                companyCode = clean
-                                errorMessage = null
-                            },
-                            placeholder = { Text("4 digits (e.g. 1001)") },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Business,
-                                    contentDescription = null,
-                                    tint = VtpOrange
-                                )
-                            },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Next
+                        .shadow(10.dp, RoundedCornerShape(22.dp), ambientColor = Color.Black, spotColor = Color(0xFFFF6600).copy(alpha = 0.2f))
+                        .clip(RoundedCornerShape(22.dp))
+                        .border(
+                            width = 1.2.dp,
+                            brush = Brush.linearGradient(
+                                listOf(Color(0xFFFF7A00).copy(alpha = 0.4f), Color.White.copy(alpha = 0.15f), Color(0xFFFF7A00).copy(alpha = 0.25f))
                             ),
-                            colors = vtpTextFieldColors(),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("input_company_code")
-                        )
-                    }
-
-                    // 2. Employee Code (xxxx)
-                    Column {
-                        Text(
-                            text = "Employee Code",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
-
-                        OutlinedTextField(
-                            value = employeeCode,
-                            onValueChange = { input ->
-                                val clean = input.filter { it.isDigit() }.take(4)
-                                employeeCode = clean
-                                errorMessage = null
-                            },
-                            placeholder = { Text("4 digits (e.g. 0452)") },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Badge,
-                                    contentDescription = null,
-                                    tint = VtpOrange
-                                )
-                            },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = ImeAction.Done
-                            ),
-                            keyboardActions = KeyboardActions(
-                                onDone = {
-                                    focusManager.clearFocus()
-                                }
-                            ),
-                            colors = vtpTextFieldColors(),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("input_employee_code")
-                        )
-                    }
-
-                    // Real-time 15-Digit IMEI Breakdown Preview
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Smartphone,
-                                        contentDescription = null,
-                                        tint = VtpOrange,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "15-Digit Terminal IMEI",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(VtpOrangeContainer)
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "9902 Pattern",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = VtpOrangeDark
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Text(
-                                text = computedImei,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace,
-                                color = VtpOrange,
-                                letterSpacing = 1.sp
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = "99 (Fix) • 02 (Fix) • ${companyCode.padStart(4, '0')} (Company) • ${employeeCode.padStart(4, '0')} (Employee) • ${computedImei.takeLast(3)} (Rand)",
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    // Error message if any
-                    AnimatedVisibility(visible = errorMessage != null) {
-                        Text(
-                            text = errorMessage ?: "",
-                            color = MaterialTheme.colorScheme.error,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-
-                    // Login Action Button
-                    Button(
-                        onClick = {
-                            focusManager.clearFocus()
-                            if (companyCode.isBlank()) {
-                                errorMessage = "Please enter your 4-digit Company Code"
-                                return@Button
-                            }
-                            if (employeeCode.isBlank()) {
-                                errorMessage = "Please enter your 4-digit Employee Code"
-                                return@Button
-                            }
-
-                            isAuthenticating = true
-                            errorMessage = null
-                            coroutineScope.launch {
-                                delay(400)
-                                isAuthenticating = false
-                                onLoginSuccess(companyCode, employeeCode)
-                            }
-                        },
-                        enabled = !isAuthenticating,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = VtpOrange,
-                            contentColor = Color.White
+                            shape = RoundedCornerShape(22.dp)
                         ),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1916).copy(alpha = 0.95f))
+                ) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp)
-                            .scale(buttonScale)
-                            .testTag("login_button"),
-                        interactionSource = interactionSource
+                            .padding(22.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
-                        if (isAuthenticating) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(22.dp),
-                                color = Color.White,
-                                strokeWidth = 2.5.dp
+                        // 1. Company Code (xxxx)
+                        Column {
+                            Text(
+                                text = "Company Code",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFFF3ECE5),
+                                modifier = Modifier.padding(bottom = 6.dp)
                             )
-                        } else {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Login,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
+
+                            OutlinedTextField(
+                                value = companyCode,
+                                onValueChange = { input ->
+                                    val clean = input.filter { it.isDigit() }.take(4)
+                                    companyCode = clean
+                                    errorMessage = null
+                                },
+                                placeholder = { Text("4 digits (e.g. 1001)", color = Color(0xFF888078)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Business,
+                                        contentDescription = null,
+                                        tint = VtpOrange
+                                    )
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Next
+                                ),
+                                colors = vtpTextFieldColors(),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("input_company_code")
+                            )
+                        }
+
+                        // 2. Employee Code (xxxx)
+                        Column {
+                            Text(
+                                text = "Employee Code",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFFF3ECE5),
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+
+                            OutlinedTextField(
+                                value = employeeCode,
+                                onValueChange = { input ->
+                                    val clean = input.filter { it.isDigit() }.take(4)
+                                    employeeCode = clean
+                                    errorMessage = null
+                                },
+                                placeholder = { Text("4 digits (e.g. 0452)", color = Color(0xFF888078)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Badge,
+                                        contentDescription = null,
+                                        tint = VtpOrange
+                                    )
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        focusManager.clearFocus()
+                                    }
+                                ),
+                                colors = vtpTextFieldColors(),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("input_employee_code")
+                            )
+                        }
+
+                        // Real-time 15-Digit IMEI Breakdown Preview with Gradient Accent
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xFF13100E),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                Brush.horizontalGradient(
+                                    listOf(Color(0xFFFF6600).copy(alpha = 0.35f), Color.White.copy(alpha = 0.1f))
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Smartphone,
+                                            contentDescription = null,
+                                            tint = VtpOrange,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "15-Digit Terminal IMEI",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(
+                                                Brush.horizontalGradient(
+                                                    listOf(Color(0xFFEA580C), Color(0xFFFF7A00))
+                                                )
+                                            )
+                                            .padding(horizontal = 7.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = "9902 Pattern",
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
                                 Text(
-                                    text = "Login to Attendance",
+                                    text = computedImei,
                                     fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Black,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = Color(0xFFFF9E44),
+                                    letterSpacing = 1.2.sp
                                 )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Text(
+                                    text = "99 • 02 • ${companyCode.padStart(4, '0')} • ${employeeCode.padStart(4, '0')} • ${computedImei.takeLast(3)} (Random)",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFFA69D95)
+                                )
+                            }
+                        }
+
+                        // Error message if any
+                        AnimatedVisibility(visible = errorMessage != null) {
+                            Text(
+                                text = errorMessage ?: "",
+                                color = Color(0xFFF87171),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+
+                        // Radiant Gradient Login Action Button
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .scale(buttonScale)
+                                .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = VtpOrange, spotColor = VtpOrange)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(VtpOrangeGradient)
+                        ) {
+                            Button(
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    if (companyCode.isBlank()) {
+                                        errorMessage = "Please enter your 4-digit Company Code"
+                                        return@Button
+                                    }
+                                    if (employeeCode.isBlank()) {
+                                        errorMessage = "Please enter your 4-digit Employee Code"
+                                        return@Button
+                                    }
+
+                                    isAuthenticating = true
+                                    errorMessage = null
+                                    coroutineScope.launch {
+                                        delay(400)
+                                        isAuthenticating = false
+                                        onLoginSuccess(companyCode, employeeCode)
+                                    }
+                                },
+                                enabled = !isAuthenticating,
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.Transparent,
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .testTag("login_button"),
+                                interactionSource = interactionSource
+                            ) {
+                                if (isAuthenticating) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(22.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.5.dp
+                                    )
+                                } else {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.Login,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Login to Attendance",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.2.sp
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Minimal Footer Info
+                Text(
+                    text = "Presence VTP • GT06 Biometric Protocol Client",
+                    fontSize = 11.sp,
+                    color = Color(0xFF787068)
+                )
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Minimal Footer Info
-            Text(
-                text = "Presence VTP • GT06 Biometric Protocol Client",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
         }
     }
 }

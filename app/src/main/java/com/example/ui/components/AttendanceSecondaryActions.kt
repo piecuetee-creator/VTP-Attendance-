@@ -73,13 +73,19 @@ fun AttendanceSecondaryActions(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Reset Biometric / Biometric Authentication Button (From Screenshot 1)
+        // Reset Biometric / Biometric Authentication Button
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .scale(scale)
                 .clip(RoundedCornerShape(16.dp))
-                .border(1.5.dp, BiometricCyan.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                .border(
+                    1.5.dp,
+                    androidx.compose.ui.graphics.Brush.horizontalGradient(
+                        listOf(BiometricCyan.copy(alpha = 0.7f), Color(0xFF00E5FF).copy(alpha = 0.3f))
+                    ),
+                    RoundedCornerShape(16.dp)
+                )
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null,
@@ -102,7 +108,11 @@ fun AttendanceSecondaryActions(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(CircleShape)
-                            .background(BiometricCyanContainer),
+                            .background(
+                                androidx.compose.ui.graphics.Brush.linearGradient(
+                                    listOf(BiometricCyanContainer, Color(0xFFE0F7FA))
+                                )
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(

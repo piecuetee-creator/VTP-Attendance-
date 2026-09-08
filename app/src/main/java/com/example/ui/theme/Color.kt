@@ -1,5 +1,6 @@
 package com.example.ui.theme
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 // VTP Attendance Palette: Orange, Black, White
@@ -17,6 +18,39 @@ val VtpDarkBorder = Color(0xFF2E2E33)
 val VtpWhite = Color(0xFFFFFFFF)
 val VtpOffWhite = Color(0xFFF7F7F8)
 val VtpLightBorder = Color(0xFFE5E7EB)
+
+// Gradients for Modern Visual Appeal
+val VtpOrangeGradient = Brush.horizontalGradient(
+    colors = listOf(Color(0xFFFF4500), Color(0xFFFF6600), Color(0xFFFFA040))
+)
+
+val VtpSunriseGradient = Brush.linearGradient(
+    colors = listOf(Color(0xFFEA580C), Color(0xFFFF7A00), Color(0xFFFBBF24))
+)
+
+val VtpWarmDarkGradient = Brush.linearGradient(
+    colors = listOf(Color(0xFF1C1917), Color(0xFF141211), Color(0xFF0C0A09))
+)
+
+val VtpHeaderGradient = Brush.verticalGradient(
+    colors = listOf(Color(0xFF1A1715), Color(0xFF12100E), Color(0xFF0A0908))
+)
+
+val VtpCardGradient = Brush.linearGradient(
+    colors = listOf(Color(0xFFFFFFFF), Color(0xFFFFFBF7), Color(0xFFFFF5EB))
+)
+
+val VtpTimeInGradient = Brush.horizontalGradient(
+    colors = listOf(Color(0xFFEA580C), Color(0xFFFF6600), Color(0xFFFF8533))
+)
+
+val VtpTimeOutGradient = Brush.horizontalGradient(
+    colors = listOf(Color(0xFF262626), Color(0xFF18181B), Color(0xFF0F0F10))
+)
+
+val VtpGlowBorderGradient = Brush.horizontalGradient(
+    colors = listOf(Color(0xFFFF6600), Color(0xFFFBBF24), Color(0xFFFF6600))
+)
 
 // Primary brand colors
 val VtpPrimary = VtpOrange

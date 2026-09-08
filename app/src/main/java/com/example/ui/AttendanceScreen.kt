@@ -5,7 +5,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -252,12 +254,22 @@ fun AttendanceScreen(
                         .padding(horizontal = 20.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
-                    // Live Date & Time Status Bar
+                    // Live Date & Time Status Bar with subtle gradient border
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         color = SurfaceCard,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                listOf(
+                                    VtpOrange.copy(alpha = 0.35f),
+                                    BorderSubtle,
+                                    VtpOrange.copy(alpha = 0.35f)
+                                )
+                            )
+                        ),
+                        shadowElevation = 1.dp
                     ) {
                         Row(
                             modifier = Modifier
@@ -275,156 +287,209 @@ fun AttendanceScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = currentTimeString.ifEmpty { "Loading time..." },
+                                    text = currentTimeString.ifEmpty { "Loading live clock..." },
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = TextSecondary,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary,
                                     fontFamily = FontFamily.Monospace
                                 )
                             }
 
                             Box(
                                 modifier = Modifier
-                                    .size(8.dp)
+                                    .size(9.dp)
                                     .clip(CircleShape)
-                                    .background(VtpOrange)
+                                    .background(
+                                        androidx.compose.ui.graphics.Brush.radialGradient(
+                                            listOf(Color(0xFFFF4500), Color(0xFFFF6600))
+                                        )
+                                    )
                             )
                         }
                     }
 
-                    // Employee Welcome / Setup Banner
+                    // Employee Welcome / Setup Banner with Radiant Gradient Card Styling
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { showProfileDialog = true },
-                        shape = RoundedCornerShape(16.dp),
-                        color = SurfaceCard,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
-                        shadowElevation = 1.dp
-                    ) {
-                        if (employeeProfile.name.isBlank()) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    modifier = Modifier.weight(1f),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(46.dp)
-                                            .clip(CircleShape)
-                                            .background(VtpOrangeContainer),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.PersonAdd,
-                                            contentDescription = "Add Profile",
-                                            tint = VtpOrange,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(14.dp))
-
-                                    Column {
-                                        Text(
-                                            text = "Employee Setup",
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextPrimary
-                                        )
-                                        Text(
-                                            text = "Company: ${employeeProfile.companyCode.ifBlank { "1001" }} • ID: ${employeeProfile.employeeCode.ifBlank { "0452" }}",
-                                            fontSize = 12.sp,
-                                            color = TextSecondary
-                                        )
-                                    }
-                                }
-
-                                Button(
-                                    onClick = { showProfileDialog = true },
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = VtpOrange,
-                                        contentColor = Color.White
+                            .clip(RoundedCornerShape(18.dp))
+                            .border(
+                                1.2.dp,
+                                androidx.compose.ui.graphics.Brush.linearGradient(
+                                    listOf(
+                                        Color(0xFFFF7A00).copy(alpha = 0.45f),
+                                        Color.White.copy(alpha = 0.8f),
+                                        Color(0xFFFF7A00).copy(alpha = 0.35f)
                                     )
-                                ) {
-                                    Text("Set Up", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        } else {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
+                                ),
+                                RoundedCornerShape(18.dp)
+                            )
+                            .clickable { showProfileDialog = true },
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color.Transparent,
+                        shadowElevation = 2.dp
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    androidx.compose.ui.graphics.Brush.linearGradient(
+                                        listOf(
+                                            Color(0xFFFFFFFF),
+                                            Color(0xFFFFF9F3),
+                                            Color(0xFFFFEFE0)
+                                        )
+                                    )
+                                )
+                        ) {
+                            if (employeeProfile.name.isBlank()) {
                                 Row(
-                                    modifier = Modifier.weight(1f),
-                                    verticalAlignment = Alignment.CenterVertically
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(46.dp)
-                                            .clip(CircleShape)
-                                            .background(VtpOrangeContainer),
-                                        contentAlignment = Alignment.Center
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Person,
-                                            contentDescription = "Employee Avatar",
-                                            tint = VtpOrange,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
+                                        Box(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    androidx.compose.ui.graphics.Brush.linearGradient(
+                                                        listOf(Color(0xFFFF4500), Color(0xFFFF6600), Color(0xFFFFA040))
+                                                    )
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.PersonAdd,
+                                                contentDescription = "Add Profile",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
 
-                                    Spacer(modifier = Modifier.width(14.dp))
+                                        Spacer(modifier = Modifier.width(14.dp))
 
-                                    Column {
-                                        Text(
-                                            text = employeeProfile.name,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextPrimary
-                                        )
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Column {
                                             Text(
-                                                text = "ID: ${employeeProfile.employeeId}",
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = VtpOrange
+                                                text = "Employee Setup",
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextPrimary
                                             )
                                             Text(
-                                                text = " • ",
+                                                text = "Company: ${employeeProfile.companyCode.ifBlank { "1001" }} • ID: ${employeeProfile.employeeCode.ifBlank { "0452" }}",
                                                 fontSize = 12.sp,
                                                 color = TextSecondary
                                             )
-                                            Text(
-                                                text = employeeProfile.designation,
-                                                fontSize = 12.sp,
-                                                color = TextSecondary,
-                                                maxLines = 1
+                                        }
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(
+                                                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                                    listOf(Color(0xFFEA580C), Color(0xFFFF6600))
+                                                )
                                             )
+                                    ) {
+                                        Button(
+                                            onClick = { showProfileDialog = true },
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color.Transparent,
+                                                contentColor = Color.White
+                                            )
+                                        ) {
+                                            Text("Set Up", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
-
-                                IconButton(
-                                    onClick = { showProfileDialog = true },
-                                    modifier = Modifier.testTag("edit_profile_button")
+                            } else {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit Profile",
-                                        tint = VtpOrange,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    androidx.compose.ui.graphics.Brush.linearGradient(
+                                                        listOf(Color(0xFFFF4500), Color(0xFFFF6600), Color(0xFFFFA040))
+                                                    )
+                                                )
+                                                .shadow(4.dp, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Person,
+                                                contentDescription = "Employee Avatar",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(14.dp))
+
+                                        Column {
+                                            Text(
+                                                text = employeeProfile.name,
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextPrimary
+                                            )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = "ID: ${employeeProfile.employeeId}",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = VtpOrangeDark
+                                                )
+                                                Text(
+                                                    text = " • ",
+                                                    fontSize = 12.sp,
+                                                    color = TextSecondary
+                                                )
+                                                Text(
+                                                    text = employeeProfile.designation,
+                                                    fontSize = 12.sp,
+                                                    color = TextSecondary,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    IconButton(
+                                        onClick = { showProfileDialog = true },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White)
+                                            .border(1.dp, VtpOrange.copy(alpha = 0.3f), CircleShape)
+                                            .testTag("edit_profile_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit Profile",
+                                            tint = VtpOrange,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

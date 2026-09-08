@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -51,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -512,50 +514,62 @@ fun SettingsContent(
         }
 
         // Action Buttons: Save & Test
-        Button(
-            onClick = {
-                val port = tcpPort.toIntOrNull() ?: 5200
-                val cleanImei = DeviceInfoManager.sanitizeImei(imei.ifBlank { livePatternImei })
-
-                onSaveConfig(
-                    config.copy(
-                        imei = cleanImei,
-                        wsUrl = wsUrl.trim(),
-                        tcpHost = tcpHost.trim(),
-                        tcpPort = port,
-                        useWebSocket = useWs
-                    )
-                )
-                onSaveProfile(
-                    profile.copy(
-                        companyCode = companyCode.trim(),
-                        employeeCode = employeeCode.trim(),
-                        employeeId = employeeCode.trim(),
-                        name = empName.trim(),
-                        designation = empDesig.trim(),
-                        location = empLoc.trim(),
-                        imei = cleanImei
-                    )
-                )
-                saveConfirmation = true
-            },
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)
-                .testTag("save_settings_button"),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = VtpOrange,
-                contentColor = Color.White
-            )
+                .shadow(6.dp, RoundedCornerShape(12.dp), ambientColor = VtpOrange, spotColor = VtpOrange)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    androidx.compose.ui.graphics.Brush.horizontalGradient(
+                        listOf(Color(0xFFFF4500), Color(0xFFFF6600), Color(0xFFFFA040))
+                    )
+                )
         ) {
-            Icon(imageVector = Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = if (saveConfirmation) "Saved Successfully!" else "Save Configuration",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Button(
+                onClick = {
+                    val port = tcpPort.toIntOrNull() ?: 5200
+                    val cleanImei = DeviceInfoManager.sanitizeImei(imei.ifBlank { livePatternImei })
+
+                    onSaveConfig(
+                        config.copy(
+                            imei = cleanImei,
+                            wsUrl = wsUrl.trim(),
+                            tcpHost = tcpHost.trim(),
+                            tcpPort = port,
+                            useWebSocket = useWs
+                        )
+                    )
+                    onSaveProfile(
+                        profile.copy(
+                            companyCode = companyCode.trim(),
+                            employeeCode = employeeCode.trim(),
+                            employeeId = employeeCode.trim(),
+                            name = empName.trim(),
+                            designation = empDesig.trim(),
+                            location = empLoc.trim(),
+                            imei = cleanImei
+                        )
+                    )
+                    saveConfirmation = true
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("save_settings_button"),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent,
+                    contentColor = Color.White
+                )
+            ) {
+                Icon(imageVector = Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (saveConfirmation) "Saved Successfully!" else "Save Configuration",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         if (onTestConnection != null) {

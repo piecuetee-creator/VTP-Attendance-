@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -341,18 +342,28 @@ fun AttendanceLocationCard(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Button(
-                                onClick = onQuickSwitchToPakistan,
+                            Box(
                                 modifier = Modifier
                                     .weight(1.3f)
-                                    .height(34.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = VtpOrange,
-                                    contentColor = Color.White
-                                )
+                                    .height(34.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                            listOf(Color(0xFFEA580C), Color(0xFFFF6600))
+                                        )
+                                    )
                             ) {
-                                Text("Set to Karachi, Pakistan", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                Button(
+                                    onClick = onQuickSwitchToPakistan,
+                                    modifier = Modifier.fillMaxSize(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.Transparent,
+                                        contentColor = Color.White
+                                    )
+                                ) {
+                                    Text("Set to Karachi, Pakistan", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
 
                             OutlinedButton(

@@ -138,3 +138,13 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+tasks.register<Copy>("copyApkToFolder") {
+  from(layout.buildDirectory.dir("outputs/apk/debug"))
+  include("*.apk")
+  into(rootProject.layout.projectDirectory.dir("apk"))
+}
+
+tasks.matching { it.name == "assembleDebug" }.configureEach {
+  finalizedBy("copyApkToFolder")
+}
