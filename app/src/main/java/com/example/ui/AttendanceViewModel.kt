@@ -8,6 +8,7 @@ import com.example.location.AttendanceLocationManager
 import com.example.location.Coordinates
 import com.example.model.AttendanceRecord
 import com.example.model.AttendanceType
+import com.example.model.AuthState
 import com.example.model.EmployeeProfile
 import com.example.model.LogDirection
 import com.example.model.SocketConfig
@@ -50,6 +51,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _isDialogAlreadyMarked = MutableStateFlow(false)
     val isDialogAlreadyMarked: StateFlow<Boolean> = _isDialogAlreadyMarked.asStateFlow()
+
+    private val _authState = MutableStateFlow(AuthState(isAuthenticated = true))
+    val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
     init {
         // Initial log and location fetch
@@ -186,6 +190,30 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     fun clearLogs() {
         socketClient.clearLogs()
+    }
+
+    fun loginSuccess(employeeId: String? = null) {
+        val empId = employeeId ?: employeeProfile.value.employeeId
+        _authState.value = AuthState(
+            isAuthenticated = true,
+            employeeId = empId,
+            loginTime = System.currentTimeMillis()
+        )
+        socketClient.addLog(
+            LogDirection.INFO,
+            "Customer authentication successful for Employee ID: $empId"
+        )
+    }
+
+    fun logout() {
+        _authState.value = AuthState(
+            isAuthenticated = false,
+            employeeId = employeeProfile.value.employeeId
+        )
+        socketClient.addLog(
+            LogDirection.INFO,
+            "User session logged out / locked"
+        )
     }
 
     fun updateProfile(profile: EmployeeProfile) {

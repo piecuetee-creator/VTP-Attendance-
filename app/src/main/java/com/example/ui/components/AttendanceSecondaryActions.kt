@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Button
@@ -57,6 +58,7 @@ import com.example.ui.theme.TextTertiary
 fun AttendanceSecondaryActions(
     onResetBiometric: () -> Unit,
     onOpenConsole: () -> Unit,
+    onLockSession: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -162,6 +164,36 @@ fun AttendanceSecondaryActions(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )
+        }
+
+        if (onLockSession != null) {
+            OutlinedButton(
+                onClick = onLockSession,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag("lock_session_button"),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = SurfaceCard,
+                    contentColor = TextSecondary
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Customer Authentication / Lock Session",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))

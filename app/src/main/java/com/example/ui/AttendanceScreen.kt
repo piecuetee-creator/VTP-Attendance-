@@ -58,6 +58,7 @@ import com.example.ui.components.AttendanceLocationCard
 import com.example.ui.components.AttendanceSecondaryActions
 import com.example.ui.components.AttendanceSuccessDialog
 import com.example.ui.components.ConsoleLogSheet
+import com.example.ui.components.CustomerAuthScreen
 import com.example.ui.components.SettingsSheet
 import com.example.ui.theme.BorderSubtle
 import com.example.ui.theme.DIBEmeraldContainer
@@ -92,6 +93,7 @@ fun AttendanceScreen(
     val isProcTimeOut by viewModel.isProcessingTimeOut.collectAsStateWithLifecycle()
     val activeDialogRecord by viewModel.activeDialogRecord.collectAsStateWithLifecycle()
     val isDialogAlreadyMarked by viewModel.isDialogAlreadyMarked.collectAsStateWithLifecycle()
+    val authState by viewModel.authState.collectAsStateWithLifecycle()
 
     var showConsoleSheet by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
@@ -130,6 +132,15 @@ fun AttendanceScreen(
         )
     }
 
+    if (!authState.isAuthenticated) {
+        CustomerAuthScreen(
+            employeeProfile = employeeProfile,
+            onLoginSuccess = { viewModel.loginSuccess() },
+            modifier = modifier
+        )
+        return
+    }
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()
@@ -139,7 +150,8 @@ fun AttendanceScreen(
             AttendanceHeader(
                 connectionStatus = connectionStatus,
                 onOpenTerminal = { showConsoleSheet = true },
-                onOpenSettings = { showSettingsSheet = true }
+                onOpenSettings = { showSettingsSheet = true },
+                onLock = { viewModel.logout() }
             )
         },
         containerColor = SurfaceCanvas
@@ -279,7 +291,8 @@ fun AttendanceScreen(
                         snackbarHostState.showSnackbar("Biometric attendance cache cleared for today.")
                     }
                 },
-                onOpenConsole = { showConsoleSheet = true }
+                onOpenConsole = { showConsoleSheet = true },
+                onLockSession = { viewModel.logout() }
             )
         }
     }

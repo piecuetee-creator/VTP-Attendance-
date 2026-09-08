@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,7 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CorporateFare
+import androidx.compose.material.icons.filled.HowToReg
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Wifi
@@ -38,10 +40,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.network.ConnectionStatus
 import com.example.ui.theme.VtpAccentGold
 import com.example.ui.theme.VtpAccentGoldLight
@@ -53,6 +58,7 @@ fun AttendanceHeader(
     connectionStatus: ConnectionStatus,
     onOpenTerminal: () -> Unit,
     onOpenSettings: () -> Unit,
+    onLock: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -98,18 +104,19 @@ fun AttendanceHeader(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(44.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White.copy(alpha = 0.15f))
-                                .border(1.dp, VtpAccentGold.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
+                                .border(1.5.dp, VtpAccentGold.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.1f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "VTP",
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_vtp_presence_logo),
+                                contentDescription = "VTP Presence Attendance Logo",
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop
                             )
                         }
 
@@ -182,6 +189,26 @@ fun AttendanceHeader(
                                 tint = Color.White,
                                 modifier = Modifier.size(20.dp)
                             )
+                        }
+
+                        if (onLock != null) {
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            IconButton(
+                                onClick = onLock,
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.15f))
+                                    .testTag("lock_auth_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "Lock Session",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }

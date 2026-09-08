@@ -26,8 +26,10 @@ class AttendanceRepository(context: Context) {
             name = prefs.getString("emp_name", "Saad Ali Hafiz") ?: "Saad Ali Hafiz",
             designation = prefs.getString("emp_desig", "Manager - Data Analytics & BI")
                 ?: "Manager - Data Analytics & BI",
-            location = prefs.getString("emp_loc", "999 - Karim Chamber Offices, Karachi")
-                ?: "999 - Karim Chamber Offices, Karachi"
+            location = run {
+                val loc = prefs.getString("emp_loc", null)
+                if (loc == null || loc.startsWith("999")) "Karim Chamber Offices, Karachi" else loc
+            }
         )
     )
     val employeeProfile = _employeeProfile.asStateFlow()

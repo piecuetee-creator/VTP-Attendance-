@@ -24,7 +24,7 @@ data class EmployeeProfile(
     val employeeId: String = "9771",
     val name: String = "Saad Ali Hafiz",
     val designation: String = "Manager - Data Analytics & BI",
-    val location: String = "999 - Karim Chamber Offices, Karachi"
+    val location: String = "Karim Chamber Offices, Karachi"
 )
 
 data class SocketConfig(
