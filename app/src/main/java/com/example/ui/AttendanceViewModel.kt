@@ -1,0 +1,198 @@
+package com.example.ui
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.data.AttendanceRepository
+import com.example.location.AttendanceLocationManager
+import com.example.location.Coordinates
+import com.example.model.AttendanceRecord
+import com.example.model.AttendanceType
+import com.example.model.EmployeeProfile
+import com.example.model.LogDirection
+import com.example.model.SocketConfig
+import com.example.model.SocketLogEntry
+import com.example.network.ConnectionStatus
+import com.example.network.Gt06SocketClient
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+class AttendanceViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val repository = AttendanceRepository(application)
+    private val locationManager = AttendanceLocationManager(application)
+    private val socketClient = Gt06SocketClient()
+
+    val employeeProfile: StateFlow<EmployeeProfile> = repository.employeeProfile
+    val socketConfig: StateFlow<SocketConfig> = repository.socketConfig
+    val lastTimeIn: StateFlow<AttendanceRecord?> = repository.lastTimeIn
+    val lastTimeOut: StateFlow<AttendanceRecord?> = repository.lastTimeOut
+
+    val connectionStatus: StateFlow<ConnectionStatus> = socketClient.connectionStatus
+    val logs: StateFlow<List<SocketLogEntry>> = socketClient.logs
+
+    private val _currentCoordinates = MutableStateFlow(locationManager.defaultCoordinates)
+    val currentCoordinates: StateFlow<Coordinates> = _currentCoordinates.asStateFlow()
+
+    private val _isLoadingLocation = MutableStateFlow(false)
+    val isLoadingLocation: StateFlow<Boolean> = _isLoadingLocation.asStateFlow()
+
+    private val _isProcessingTimeIn = MutableStateFlow(false)
+    val isProcessingTimeIn: StateFlow<Boolean> = _isProcessingTimeIn.asStateFlow()
+
+    private val _isProcessingTimeOut = MutableStateFlow(false)
+    val isProcessingTimeOut: StateFlow<Boolean> = _isProcessingTimeOut.asStateFlow()
+
+    private val _activeDialogRecord = MutableStateFlow<AttendanceRecord?>(null)
+    val activeDialogRecord: StateFlow<AttendanceRecord?> = _activeDialogRecord.asStateFlow()
+
+    private val _isDialogAlreadyMarked = MutableStateFlow(false)
+    val isDialogAlreadyMarked: StateFlow<Boolean> = _isDialogAlreadyMarked.asStateFlow()
+
+    init {
+        // Initial log and location fetch
+        socketClient.addLog(
+            LogDirection.INFO,
+            "Presence VTP Attendance Client initialized (Powered by VTP)"
+        )
+        refreshLocation()
+    }
+
+    fun refreshLocation() {
+        viewModelScope.launch {
+            _isLoadingLocation.value = true
+            try {
+                val coords = locationManager.getCurrentLocation()
+                _currentCoordinates.value = coords
+                socketClient.addLog(
+                    LogDirection.INFO,
+                    "Acquired coordinates: Lat ${String.format("%.4f", coords.latitude)}, Lon ${String.format("%.4f", coords.longitude)} (GPS Fix: ${coords.isRealGps})"
+                )
+            } finally {
+                _isLoadingLocation.value = false
+            }
+        }
+    }
+
+    fun onTimeInClicked() {
+        if (_isProcessingTimeIn.value) return
+
+        // If already marked today, show the confirmation dialog directly (as shown in Screenshot 2)
+        val existing = lastTimeIn.value
+        if (existing != null) {
+            _isDialogAlreadyMarked.value = true
+            _activeDialogRecord.value = existing
+            socketClient.addLog(LogDirection.INFO, "Time In was already marked at ${existing.formattedDateTime}")
+            return
+        }
+
+        viewModelScope.launch {
+            _isProcessingTimeIn.value = true
+            try {
+                // Ensure fresh location
+                val coords = locationManager.getCurrentLocation()
+                _currentCoordinates.value = coords
+
+                val config = socketConfig.value
+                val (success, message) = socketClient.sendAttendance(
+                    config = config,
+                    lat = coords.latitude,
+                    lon = coords.longitude,
+                    isTimeIn = true
+                )
+
+                // Save record and pop confirmation dialog
+                val record = repository.saveAttendanceRecord(
+                    type = AttendanceType.TIME_IN,
+                    lat = coords.latitude,
+                    lon = coords.longitude,
+                    txHex = "0x12 GPS Location (ACC ON)",
+                    rxHex = if (success) "Transmitted OK" else message
+                )
+
+                _isDialogAlreadyMarked.value = false
+                _activeDialogRecord.value = record
+            } finally {
+                _isProcessingTimeIn.value = false
+            }
+        }
+    }
+
+    fun onTimeOutClicked() {
+        if (_isProcessingTimeOut.value) return
+
+        val existing = lastTimeOut.value
+        if (existing != null) {
+            _isDialogAlreadyMarked.value = true
+            _activeDialogRecord.value = existing
+            socketClient.addLog(LogDirection.INFO, "Time Out was already marked at ${existing.formattedDateTime}")
+            return
+        }
+
+        viewModelScope.launch {
+            _isProcessingTimeOut.value = true
+            try {
+                val coords = locationManager.getCurrentLocation()
+                _currentCoordinates.value = coords
+
+                val config = socketConfig.value
+                val (success, message) = socketClient.sendAttendance(
+                    config = config,
+                    lat = coords.latitude,
+                    lon = coords.longitude,
+                    isTimeIn = false
+                )
+
+                val record = repository.saveAttendanceRecord(
+                    type = AttendanceType.TIME_OUT,
+                    lat = coords.latitude,
+                    lon = coords.longitude,
+                    txHex = "0x12 GPS Location (ACC OFF)",
+                    rxHex = if (success) "Transmitted OK" else message
+                )
+
+                _isDialogAlreadyMarked.value = false
+                _activeDialogRecord.value = record
+            } finally {
+                _isProcessingTimeOut.value = false
+            }
+        }
+    }
+
+    fun dismissDialog() {
+        _activeDialogRecord.value = null
+        _isDialogAlreadyMarked.value = false
+    }
+
+    fun resetBiometric() {
+        repository.resetBiometric()
+        socketClient.addLog(LogDirection.INFO, "Biometric cache reset. Time In and Time Out cleared.")
+    }
+
+    fun sendTestLoginPacket() {
+        viewModelScope.launch {
+            val config = socketConfig.value
+            val coords = _currentCoordinates.value
+            socketClient.sendAttendance(
+                config = config,
+                lat = coords.latitude,
+                lon = coords.longitude,
+                isTimeIn = true
+            )
+        }
+    }
+
+    fun clearLogs() {
+        socketClient.clearLogs()
+    }
+
+    fun updateProfile(profile: EmployeeProfile) {
+        repository.updateProfile(profile)
+    }
+
+    fun updateSocketConfig(config: SocketConfig) {
+        repository.updateSocketConfig(config)
+    }
+}
