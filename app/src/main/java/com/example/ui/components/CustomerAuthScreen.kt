@@ -30,7 +30,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -40,6 +44,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -88,7 +93,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun CustomerAuthScreen(
     employeeProfile: EmployeeProfile,
+    isAuthenticated: Boolean = false,
     onLoginSuccess: (companyCode: String, employeeCode: String) -> Unit,
+    onLogout: (() -> Unit)? = null,
+    onNavigateToAttendance: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -96,12 +104,14 @@ fun CustomerAuthScreen(
     val focusManager = LocalFocusManager.current
     val coroutineScope = rememberCoroutineScope()
 
-    var companyCode by remember {
+    var isSwitchingAccount by remember { mutableStateOf(false) }
+
+    var companyCode by remember(employeeProfile.companyCode) {
         mutableStateOf(
             employeeProfile.companyCode.ifBlank { "1001" }
         )
     }
-    var employeeCode by remember {
+    var employeeCode by remember(employeeProfile.employeeCode, employeeProfile.employeeId) {
         mutableStateOf(
             employeeProfile.employeeCode.ifBlank { employeeProfile.employeeId.ifBlank { "0452" } }
         )
@@ -237,8 +247,23 @@ fun CustomerAuthScreen(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // Main Input Card with Gradient Glass Border
-                Card(
+                if (isAuthenticated && !isSwitchingAccount) {
+                    AuthenticatedSessionCard(
+                        companyCode = companyCode.ifBlank { employeeProfile.companyCode },
+                        employeeCode = employeeCode.ifBlank { employeeProfile.employeeCode },
+                        computedImei = computedImei,
+                        onNavigateToAttendance = onNavigateToAttendance,
+                        onSwitchAccount = { isSwitchingAccount = true },
+                        onLogout = if (onLogout != null) {
+                            {
+                                onLogout()
+                                isSwitchingAccount = true
+                            }
+                        } else null
+                    )
+                } else {
+                    // Main Input Card with Gradient Glass Border
+                    Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .shadow(10.dp, RoundedCornerShape(22.dp), ambientColor = Color.Black, spotColor = Color(0xFFFF6600).copy(alpha = 0.2f))
@@ -494,7 +519,22 @@ fun CustomerAuthScreen(
                             }
                         }
 
-                        if (onClose != null) {
+                        if (isSwitchingAccount && isAuthenticated) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            TextButton(
+                                onClick = { isSwitchingAccount = false },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("auth_cancel_switch_button")
+                            ) {
+                                Text(
+                                    text = "Cancel",
+                                    color = Color(0xFFD4C8BE),
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        } else if (onClose != null) {
                             Spacer(modifier = Modifier.height(10.dp))
                             TextButton(
                                 onClick = onClose,
@@ -512,6 +552,7 @@ fun CustomerAuthScreen(
                         }
                     }
                 }
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -521,6 +562,205 @@ fun CustomerAuthScreen(
                     fontSize = 11.sp,
                     color = Color(0xFF787068)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuthenticatedSessionCard(
+    companyCode: String,
+    employeeCode: String,
+    computedImei: String,
+    onNavigateToAttendance: (() -> Unit)?,
+    onSwitchAccount: () -> Unit,
+    onLogout: (() -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(12.dp, RoundedCornerShape(22.dp), ambientColor = Color.Black, spotColor = Color(0xFF10B981).copy(alpha = 0.25f))
+            .clip(RoundedCornerShape(22.dp))
+            .border(
+                width = 1.2.dp,
+                brush = Brush.linearGradient(
+                    listOf(Color(0xFF10B981).copy(alpha = 0.6f), Color.White.copy(alpha = 0.15f), Color(0xFF10B981).copy(alpha = 0.4f))
+                ),
+                shape = RoundedCornerShape(22.dp)
+            ),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B1917).copy(alpha = 0.96f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Active Session Badge Pill
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF064E3B).copy(alpha = 0.5f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.6f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF34D399),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Active Session • Authenticated",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD1FAE5)
+                    )
+                }
+            }
+
+            // Credentials Breakdown
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFF12100E))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Company Code", fontSize = 13.sp, color = Color(0xFFA69D95))
+                    Text(
+                        text = companyCode,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Employee Code", fontSize = 13.sp, color = Color(0xFFA69D95))
+                    Text(
+                        text = employeeCode,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        color = VtpOrange
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("15-Digit Terminal IMEI", fontSize = 13.sp, color = Color(0xFFA69D95))
+                    Text(
+                        text = computedImei,
+                        fontSize = 13.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFF9E44)
+                    )
+                }
+            }
+
+            // Primary Action: Go to Attendance
+            if (onNavigateToAttendance != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = VtpOrange, spotColor = VtpOrange)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(VtpOrangeGradient)
+                ) {
+                    Button(
+                        onClick = onNavigateToAttendance,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("auth_go_to_attendance_button")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Go to Attendance",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Switch Account / Re-Login
+            OutlinedButton(
+                onClick = onSwitchAccount,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag("auth_switch_account_button"),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f))
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Login,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Switch Account / Re-Login",
+                    color = Color.White,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            if (onLogout != null) {
+                TextButton(
+                    onClick = onLogout,
+                    modifier = Modifier.testTag("auth_logout_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Logout,
+                        contentDescription = null,
+                        tint = Color(0xFFF87171),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Log Out Session",
+                        color = Color(0xFFF87171),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }

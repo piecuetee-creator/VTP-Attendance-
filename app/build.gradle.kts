@@ -139,24 +139,33 @@ dependencies {
   "ksp"(libs.moshi.kotlin.codegen)
 }
 
-val outputApkDir = layout.buildDirectory.dir("outputs/apk/debug")
-val targetApkDir = rootProject.layout.projectDirectory.dir("apk")
+abstract class CopyApkTask : DefaultTask() {
+  @get:InputDirectory
+  abstract val sourceDir: DirectoryProperty
 
-tasks.register<Copy>("copyApkToFolder") {
-  notCompatibleWithConfigurationCache("Copies output APK files to apk folder")
-  from(outputApkDir)
-  include("*.apk")
-  into(targetApkDir)
-  doLast {
-    val destDir = targetApkDir.asFile
-    val debugApk = File(destDir, "app-debug.apk")
-    val vtpApk = File(destDir, "vtp-attendance.apk")
+  @get:OutputDirectory
+  abstract val targetDir: DirectoryProperty
+
+  @TaskAction
+  fun copyApks() {
+    val src = sourceDir.get().asFile
+    val dst = targetDir.get().asFile
+    if (!dst.exists()) {
+      dst.mkdirs()
+    }
+    val debugApk = File(src, "app-debug.apk")
     if (debugApk.exists()) {
-      debugApk.copyTo(vtpApk, overwrite = true)
+      debugApk.copyTo(File(dst, "app-debug.apk"), overwrite = true)
+      debugApk.copyTo(File(dst, "vtp-attendance.apk"), overwrite = true)
     }
   }
 }
 
+val copyApkTask = tasks.register<CopyApkTask>("copyApkToFolder") {
+  sourceDir.set(layout.buildDirectory.dir("outputs/apk/debug"))
+  targetDir.set(File(rootDir, "apk"))
+}
+
 tasks.matching { it.name == "assembleDebug" }.configureEach {
-  finalizedBy("copyApkToFolder")
+  finalizedBy(copyApkTask)
 }

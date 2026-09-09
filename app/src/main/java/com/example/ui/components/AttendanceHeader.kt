@@ -56,8 +56,8 @@ import com.example.ui.theme.VtpPrimaryDark
 @Composable
 fun AttendanceHeader(
     connectionStatus: ConnectionStatus,
-    onOpenTerminal: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenTerminal: (() -> Unit)? = null,
+    onOpenSettings: (() -> Unit)? = null,
     onLock: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -168,62 +168,66 @@ fun AttendanceHeader(
                             }
                         }
 
-                        // Right: Live Terminal and Settings actions
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(
-                                onClick = onOpenTerminal,
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.08f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                                    .testTag("console_logs_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Terminal,
-                                    contentDescription = "Live GT06 Console",
-                                    tint = Color(0xFFFFA040),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                        // Right: Live Terminal and Settings actions (hidden when null)
+                        if (onOpenTerminal != null || onOpenSettings != null || onLock != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (onOpenTerminal != null) {
+                                    IconButton(
+                                        onClick = onOpenTerminal,
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.08f))
+                                            .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                                            .testTag("console_logs_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Terminal,
+                                            contentDescription = "Live GT06 Console",
+                                            tint = Color(0xFFFFA040),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
 
-                            Spacer(modifier = Modifier.width(8.dp))
+                                if (onOpenSettings != null) {
+                                    if (onOpenTerminal != null) Spacer(modifier = Modifier.width(8.dp))
+                                    IconButton(
+                                        onClick = onOpenSettings,
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.08f))
+                                            .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                                            .testTag("settings_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Settings,
+                                            contentDescription = "Settings",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
 
-                            IconButton(
-                                onClick = onOpenSettings,
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.08f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                                    .testTag("settings_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = "Settings",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            if (onLock != null) {
-                                Spacer(modifier = Modifier.width(8.dp))
-
-                                IconButton(
-                                    onClick = onLock,
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.08f))
-                                        .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                                        .testTag("lock_auth_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Lock,
-                                        contentDescription = "Lock Session",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                if (onLock != null) {
+                                    if (onOpenTerminal != null || onOpenSettings != null) Spacer(modifier = Modifier.width(8.dp))
+                                    IconButton(
+                                        onClick = onLock,
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.08f))
+                                            .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                                            .testTag("lock_auth_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Lock,
+                                            contentDescription = "Lock Session",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -287,7 +291,7 @@ fun AttendanceHeader(
                                     )
                                     .border(1.dp, statusColor.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
                                     .padding(horizontal = 11.dp, vertical = 5.dp)
-                                    .clickable { onOpenTerminal() }
+                                    .clickable(enabled = onOpenTerminal != null) { onOpenTerminal?.invoke() }
                             ) {
                                 Box(
                                     modifier = Modifier

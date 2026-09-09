@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
@@ -160,33 +161,15 @@ fun AttendanceScreen(
         )
     }
 
-    // Login Page: User enters only company and employee code
-    if (!authState.isAuthenticated) {
-        CustomerAuthScreen(
-            employeeProfile = employeeProfile,
-            onLoginSuccess = { comp, emp ->
-                viewModel.loginWithCodes(comp, emp)
-            },
-            onClose = {
-                viewModel.dismissAuth()
-            },
-            modifier = modifier
-        )
-        return
-    }
-
     Scaffold(
         modifier = modifier
             .fillMaxSize()
             .testTag("attendance_screen"),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            if (selectedTab != 0) {
+            if (selectedTab == 2 || selectedTab == 3) {
                 AttendanceHeader(
-                    connectionStatus = connectionStatus,
-                    onOpenTerminal = { selectedTab = 2 },
-                    onOpenSettings = { selectedTab = 1 },
-                    onLock = { viewModel.logout() }
+                    connectionStatus = connectionStatus
                 )
             }
         },
@@ -217,11 +200,30 @@ fun AttendanceScreen(
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
+                    icon = { Icon(Icons.AutoMirrored.Filled.Login, contentDescription = "Login") },
+                    label = {
+                        Text(
+                            text = "Login",
+                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 12.sp
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Color.White,
+                        selectedTextColor = VtpOrange,
+                        indicatorColor = VtpOrange
+                    ),
+                    modifier = Modifier.testTag("tab_login")
+                )
+
+                NavigationBarItem(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
                     icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
                     label = {
                         Text(
                             text = "Settings",
-                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
+                            fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
                             fontSize = 12.sp
                         )
                     },
@@ -234,13 +236,13 @@ fun AttendanceScreen(
                 )
 
                 NavigationBarItem(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
                     icon = { Icon(Icons.Default.Terminal, contentDescription = "Console") },
                     label = {
                         Text(
                             text = "Console",
-                            fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
+                            fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal,
                             fontSize = 12.sp
                         )
                     },
@@ -267,12 +269,12 @@ fun AttendanceScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Top Row: Connection Status Pill & Quick Action Icons
+                    // Top Row: Connection Status Pill (clean header without action buttons)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Connection Status Pill
@@ -300,43 +302,6 @@ fun AttendanceScreen(
                                     fontSize = 11.5.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color(0xFF524840)
-                                )
-                            }
-                        }
-
-                        // Quick Navigation Actions (Console, Settings, Lock)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(
-                                onClick = { selectedTab = 2 },
-                                modifier = Modifier.size(38.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Terminal,
-                                    contentDescription = "Console",
-                                    tint = Color(0xFF787068),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            IconButton(
-                                onClick = { selectedTab = 1 },
-                                modifier = Modifier.size(38.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = "Settings",
-                                    tint = Color(0xFF787068),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            IconButton(
-                                onClick = { viewModel.logout() },
-                                modifier = Modifier.size(38.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Lock,
-                                    contentDescription = "Lock Session",
-                                    tint = Color(0xFF787068),
-                                    modifier = Modifier.size(19.dp)
                                 )
                             }
                         }
@@ -419,8 +384,35 @@ fun AttendanceScreen(
                 }
             }
 
-            // TAB 1: SETTINGS (I.P., Server, Port, WebSocket, 15-Digit Terminal IMEI)
+            // TAB 1: SEPARATED LOGIN & AUTHENTICATION PAGE
             1 -> {
+                CustomerAuthScreen(
+                    employeeProfile = employeeProfile,
+                    isAuthenticated = authState.isAuthenticated,
+                    onLoginSuccess = { comp, emp ->
+                        viewModel.loginWithCodes(comp, emp)
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Logged in successfully as $emp")
+                        }
+                        selectedTab = 0
+                    },
+                    onLogout = {
+                        viewModel.logout()
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Session logged out")
+                        }
+                    },
+                    onNavigateToAttendance = {
+                        selectedTab = 0
+                    },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                )
+            }
+
+            // TAB 2: SETTINGS (I.P., Server, Port, WebSocket, 15-Digit Terminal IMEI)
+            2 -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -453,8 +445,8 @@ fun AttendanceScreen(
                 }
             }
 
-            // TAB 2: LIVE CONSOLE LOGS
-            2 -> {
+            // TAB 3: LIVE CONSOLE LOGS
+            3 -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
