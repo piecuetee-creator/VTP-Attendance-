@@ -139,10 +139,22 @@ dependencies {
   "ksp"(libs.moshi.kotlin.codegen)
 }
 
+val outputApkDir = layout.buildDirectory.dir("outputs/apk/debug")
+val targetApkDir = rootProject.layout.projectDirectory.dir("apk")
+
 tasks.register<Copy>("copyApkToFolder") {
-  from(layout.buildDirectory.dir("outputs/apk/debug"))
+  notCompatibleWithConfigurationCache("Copies output APK files to apk folder")
+  from(outputApkDir)
   include("*.apk")
-  into(rootProject.layout.projectDirectory.dir("apk"))
+  into(targetApkDir)
+  doLast {
+    val destDir = targetApkDir.asFile
+    val debugApk = File(destDir, "app-debug.apk")
+    val vtpApk = File(destDir, "vtp-attendance.apk")
+    if (debugApk.exists()) {
+      debugApk.copyTo(vtpApk, overwrite = true)
+    }
+  }
 }
 
 tasks.matching { it.name == "assembleDebug" }.configureEach {

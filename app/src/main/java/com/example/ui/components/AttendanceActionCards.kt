@@ -62,97 +62,35 @@ fun AttendanceActionCards(
     onTimeOutClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    // Action Cards: Time In & Time Out side-by-side with Rich Gradients
+    Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Section Header with Accent Gradient Pill
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(20.dp))
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            VtpOrange.copy(alpha = 0.12f),
-                            VtpOrangeLight.copy(alpha = 0.22f),
-                            VtpOrange.copy(alpha = 0.12f)
-                        )
-                    )
-                )
-                .border(
-                    1.dp,
-                    Brush.horizontalGradient(
-                        listOf(VtpOrange.copy(alpha = 0.25f), VtpOrangeLight.copy(alpha = 0.6f), VtpOrange.copy(alpha = 0.25f))
-                    ),
-                    RoundedCornerShape(20.dp)
-                )
-                .padding(horizontal = 14.dp, vertical = 5.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Schedule,
-                    contentDescription = null,
-                    tint = VtpOrange,
-                    modifier = Modifier.size(13.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Daily Attendance Punch",
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = VtpOrangeDark,
-                    letterSpacing = 0.4.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Mark Attendance",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Black,
-            color = TextPrimary,
-            letterSpacing = (-0.3).sp
+        // TIME IN CARD (Vibrant Sunrise Orange Gradient)
+        AttendanceGradientCard(
+            title = "Time In",
+            subtitle = if (lastTimeIn != null) "Punched Today" else "Start Shift",
+            isTimeIn = true,
+            markedRecord = lastTimeIn,
+            isProcessing = isProcessingTimeIn,
+            onClick = onTimeInClick,
+            testTag = "time_in_button",
+            modifier = Modifier.weight(1f)
         )
 
-        Text(
-            text = "Tap your punch action below to send encrypted GT06 packet",
-            fontSize = 12.5.sp,
-            color = TextSecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 2.dp, bottom = 18.dp)
+        // TIME OUT CARD (Obsidian Black & Charcoal Gradient)
+        AttendanceGradientCard(
+            title = "Time Out",
+            subtitle = if (lastTimeOut != null) "Punched Today" else "End Shift",
+            isTimeIn = false,
+            markedRecord = lastTimeOut,
+            isProcessing = isProcessingTimeOut,
+            onClick = onTimeOutClick,
+            testTag = "time_out_button",
+            modifier = Modifier.weight(1f)
         )
-
-        // Action Cards: Time In & Time Out side-by-side with Rich Gradients
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            // TIME IN CARD (Vibrant Sunrise Orange Gradient)
-            AttendanceGradientCard(
-                title = "Time In",
-                subtitle = if (lastTimeIn != null) "Punched Today" else "Start Shift",
-                isTimeIn = true,
-                markedRecord = lastTimeIn,
-                isProcessing = isProcessingTimeIn,
-                onClick = onTimeInClick,
-                testTag = "time_in_button",
-                modifier = Modifier.weight(1f)
-            )
-
-            // TIME OUT CARD (Obsidian Black & Charcoal Gradient)
-            AttendanceGradientCard(
-                title = "Time Out",
-                subtitle = if (lastTimeOut != null) "Punched Today" else "End Shift",
-                isTimeIn = false,
-                markedRecord = lastTimeOut,
-                isProcessing = isProcessingTimeOut,
-                onClick = onTimeOutClick,
-                testTag = "time_out_button",
-                modifier = Modifier.weight(1f)
-            )
-        }
     }
 }
 

@@ -272,6 +272,14 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         )
     }
 
+    fun dismissAuth() {
+        _authState.value = _authState.value.copy(isAuthenticated = true)
+        socketClient.addLog(
+            LogDirection.INFO,
+            "Login dialog dismissed by user"
+        )
+    }
+
     fun updateProfile(profile: EmployeeProfile) {
         repository.updateProfile(profile)
         socketClient.addLog(

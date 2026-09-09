@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -36,10 +38,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,9 +57,11 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -63,6 +69,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.model.EmployeeProfile
 import com.example.ui.theme.VtpOrange
 import com.example.ui.theme.VtpOrangeDark
@@ -82,6 +89,7 @@ import kotlinx.coroutines.launch
 fun CustomerAuthScreen(
     employeeProfile: EmployeeProfile,
     onLoginSuccess: (companyCode: String, employeeCode: String) -> Unit,
+    onClose: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -134,6 +142,28 @@ fun CustomerAuthScreen(
                     )
                 )
         ) {
+            // Close Option at Top-Right
+            if (onClose != null) {
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 20.dp, end = 20.dp)
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                        .testTag("auth_close_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close Login Dialog",
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -153,7 +183,7 @@ fun CustomerAuthScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(64.dp)
+                            .size(66.dp)
                             .clip(RoundedCornerShape(20.dp))
                             .background(
                                 Brush.linearGradient(
@@ -163,31 +193,44 @@ fun CustomerAuthScreen(
                             .shadow(12.dp, RoundedCornerShape(20.dp), ambientColor = VtpOrange, spotColor = VtpOrange),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Badge,
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_vtp_presence_logo),
                             contentDescription = "Presence Logo",
-                            tint = Color.White,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier
+                                .size(66.dp)
+                                .clip(RoundedCornerShape(20.dp)),
+                            contentScale = ContentScale.Crop
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Brand Title
+                // Brand Title Underneath Logo: "Presence"
                 Text(
-                    text = "Presence Attendance",
-                    fontSize = 26.sp,
+                    text = "Presence",
+                    fontSize = 30.sp,
                     fontWeight = FontWeight.Black,
                     color = Color.White,
                     letterSpacing = (-0.5).sp
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // "Powered by VTP"
+                Text(
+                    text = "Powered by VTP",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = VtpOrange,
+                    letterSpacing = 0.5.sp
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
                     text = "Enter your Company & Employee codes to authenticate",
-                    fontSize = 13.5.sp,
+                    fontSize = 13.sp,
                     color = Color(0xFFB8AEA5),
                     textAlign = TextAlign.Center
                 )
@@ -448,6 +491,23 @@ fun CustomerAuthScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+
+                        if (onClose != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            TextButton(
+                                onClick = onClose,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("auth_cancel_button")
+                            ) {
+                                Text(
+                                    text = "Close & Continue",
+                                    color = Color(0xFFD4C8BE),
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }
