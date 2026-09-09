@@ -322,7 +322,7 @@ fun CustomerAuthScreen(
                             )
                         }
 
-                        // 2. Employee Code (xxxx)
+                        // 2. Employee Code (xxxxxx)
                         Column {
                             Text(
                                 text = "Employee Code",
@@ -335,11 +335,11 @@ fun CustomerAuthScreen(
                             OutlinedTextField(
                                 value = employeeCode,
                                 onValueChange = { input ->
-                                    val clean = input.filter { it.isDigit() }.take(4)
+                                    val clean = input.filter { it.isDigit() }.take(6)
                                     employeeCode = clean
                                     errorMessage = null
                                 },
-                                placeholder = { Text("4 digits (e.g. 0452)", color = Color(0xFF888078)) },
+                                placeholder = { Text("e.g. 001 or 0452", color = Color(0xFF888078)) },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Badge,
@@ -363,80 +363,6 @@ fun CustomerAuthScreen(
                                     .fillMaxWidth()
                                     .testTag("input_employee_code")
                             )
-                        }
-
-                        // Real-time 15-Digit IMEI Breakdown Preview with Gradient Accent
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            color = Color(0xFF13100E),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                Brush.horizontalGradient(
-                                    listOf(Color(0xFFFF6600).copy(alpha = 0.35f), Color.White.copy(alpha = 0.1f))
-                                )
-                            )
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Default.Smartphone,
-                                            contentDescription = null,
-                                            tint = VtpOrange,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "15-Digit Terminal IMEI",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                    }
-
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(
-                                                Brush.horizontalGradient(
-                                                    listOf(Color(0xFFEA580C), Color(0xFFFF7A00))
-                                                )
-                                            )
-                                            .padding(horizontal = 7.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            text = "9902 Pattern",
-                                            fontSize = 9.5.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = Color.White
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = computedImei,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Black,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = Color(0xFFFF9E44),
-                                    letterSpacing = 1.2.sp
-                                )
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                Text(
-                                    text = "99 • 02 • ${companyCode.padStart(4, '0')} • ${employeeCode.padStart(4, '0')} • ${computedImei.takeLast(3)} (Random)",
-                                    fontSize = 10.sp,
-                                    color = Color(0xFFA69D95)
-                                )
-                            }
                         }
 
                         // Error message if any
@@ -464,11 +390,11 @@ fun CustomerAuthScreen(
                                 onClick = {
                                     focusManager.clearFocus()
                                     if (companyCode.isBlank()) {
-                                        errorMessage = "Please enter your 4-digit Company Code"
+                                        errorMessage = "Please enter your Company Code"
                                         return@Button
                                     }
                                     if (employeeCode.isBlank()) {
-                                        errorMessage = "Please enter your 4-digit Employee Code"
+                                        errorMessage = "Please enter your Employee Code"
                                         return@Button
                                     }
 
@@ -665,7 +591,7 @@ private fun AuthenticatedSessionCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("15-Digit Terminal IMEI", fontSize = 13.sp, color = Color(0xFFA69D95))
+                    Text("Terminal ID", fontSize = 13.sp, color = Color(0xFFA69D95))
                     Text(
                         text = computedImei,
                         fontSize = 13.sp,

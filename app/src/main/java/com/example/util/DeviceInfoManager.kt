@@ -76,27 +76,25 @@ object DeviceInfoManager {
     }
 
     /**
-     * Builds a 15-digit IMEI adhering strictly to the user's specification:
-     * - "99" : Fixed starting of IMEI (2 digits)
-     * - "02" : Product Fixed code (2 digits)
-     * - "xxxx" : Company code (4 digits, numeric)
-     * - "xxxx" : Employee code (4 digits, numeric)
-     * - "xxx"  : Random numbers (3 digits, device-persisted)
-     * Pattern: 9902xxxxxxxxxxx (Total = 2 + 2 + 4 + 4 + 3 = 15 digits)
+     * Builds a 15-digit IMEI adhering strictly to the internal VTP specification:
+     * - "99"     : VTP (fix) (2 digits)
+     * - "002"    : Product (fix) (3 digits)
+     * - "xxxx"   : Company code (4 digits, numeric, e.g. 1001)
+     * - "xxxxxx" : Employee code (6 digits, numeric, padded with leading zeros, e.g. 001 -> 000001)
+     * Pattern: 99002xxxxxxxxxx (Total = 2 + 3 + 4 + 6 = 15 digits)
      */
     fun buildVtpImei(
         companyCode: String,
         employeeCode: String,
-        context: Context? = null
+        @Suppress("UNUSED_PARAMETER") context: Context? = null
     ): String {
-        val cleanComp = companyCode.filter { it.isDigit() }.padStart(4, '0').takeLast(4)
-        val cleanEmp = employeeCode.filter { it.isDigit() }.padStart(4, '0').takeLast(4)
-        val rand = if (context != null) {
-            getSavedRandomSuffix(context)
-        } else {
-            "875"
+        val cleanComp = companyCode.filter { it.isDigit() }.let {
+            if (it.length > 4) it.takeLast(4) else it.padStart(4, '0')
         }
-        return "9902$cleanComp$cleanEmp$rand"
+        val cleanEmp = employeeCode.filter { it.isDigit() }.let {
+            if (it.length > 6) it.takeLast(6) else it.padStart(6, '0')
+        }
+        return "99002$cleanComp$cleanEmp"
     }
 
     fun getSavedRandomSuffix(context: Context): String {

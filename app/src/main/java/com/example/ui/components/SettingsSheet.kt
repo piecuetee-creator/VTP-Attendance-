@@ -350,7 +350,7 @@ fun SettingsContent(
                     }
                 }
 
-                // 15-Digit IMEI Breakdown Visualizer
+                // 15-Digit IMEI Visualizer
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
@@ -365,14 +365,6 @@ fun SettingsContent(
                             fontFamily = FontFamily.Monospace,
                             color = VtpOrange,
                             letterSpacing = 1.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "99 (Fix) + 02 (Product) + ${companyCode.padStart(4, '0')} (Company) + ${employeeCode.padStart(4, '0')} (Employee) + ${livePatternImei.takeLast(3)} (Rand)",
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -400,11 +392,11 @@ fun SettingsContent(
                     OutlinedTextField(
                         value = employeeCode,
                         onValueChange = { input ->
-                            employeeCode = input.filter { it.isDigit() }.take(4)
+                            employeeCode = input.filter { it.isDigit() }.take(6)
                             imei = DeviceInfoManager.buildVtpImei(companyCode, employeeCode, context)
                         },
                         label = { Text("Employee Code") },
-                        placeholder = { Text("0452") },
+                        placeholder = { Text("001 or 0452") },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = VtpOrange) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f),
@@ -428,7 +420,7 @@ fun SettingsContent(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Reset to 9902 formula",
+                                contentDescription = "Reset Terminal IMEI",
                                 tint = VtpOrange
                             )
                         }

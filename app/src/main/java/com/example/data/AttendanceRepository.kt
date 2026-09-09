@@ -21,13 +21,20 @@ class AttendanceRepository(private val context: Context) {
     private val dateFormat = SimpleDateFormat("dd-MMM-yyyy hh:mm a", Locale.getDefault())
     private val dayKeyFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
 
-    // Determine initial 15-digit IMEI following the 9902 formula if company/employee codes exist
+    // Determine initial 15-digit IMEI following the internal 99002 pattern
     private val savedCompanyCode = prefs.getString("emp_company_code", "") ?: ""
     private val savedEmployeeCode = prefs.getString("emp_code", "") ?: ""
-    private val initialDeviceImei = if (savedCompanyCode.isNotBlank() && savedEmployeeCode.isNotBlank()) {
-        DeviceInfoManager.buildVtpImei(savedCompanyCode, savedEmployeeCode, context)
-    } else {
-        prefs.getString("imei", null) ?: DeviceInfoManager.buildVtpImei("1001", "0452", context)
+    private val initialDeviceImei = run {
+        val comp = savedCompanyCode.ifBlank { "1001" }
+        val emp = savedEmployeeCode.ifBlank { "000452" }
+        val raw = prefs.getString("imei", null)
+        if (raw != null && raw.startsWith("99002") && raw.length == 15) {
+            raw
+        } else {
+            val newlyBuilt = DeviceInfoManager.buildVtpImei(comp, emp, context)
+            prefs.edit().putString("imei", newlyBuilt).putString("emp_imei", newlyBuilt).apply()
+            newlyBuilt
+        }
     }
 
     private val _employeeProfile = MutableStateFlow(
@@ -172,8 +179,12 @@ class AttendanceRepository(private val context: Context) {
     }
 
     fun loginWithCodes(companyCode: String, employeeCode: String) {
-        val cleanComp = companyCode.filter { it.isDigit() }.padStart(4, '0').takeLast(4)
-        val cleanEmp = employeeCode.filter { it.isDigit() }.padStart(4, '0').takeLast(4)
+        val cleanComp = companyCode.filter { it.isDigit() }.let {
+            if (it.length > 4) it.takeLast(4) else it.padStart(4, '0')
+        }
+        val cleanEmp = employeeCode.filter { it.isDigit() }.let {
+            if (it.length > 6) it.takeLast(6) else it.padStart(6, '0')
+        }
         val newImei = DeviceInfoManager.buildVtpImei(cleanComp, cleanEmp, context)
 
         val current = _employeeProfile.value

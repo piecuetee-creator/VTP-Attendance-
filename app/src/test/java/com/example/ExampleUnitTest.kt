@@ -59,5 +59,21 @@ class ExampleUnitTest {
         assertEquals(0x0D.toByte(), packet[34])
         assertEquals(0x0A.toByte(), packet[35])
     }
+
+    @Test
+    fun buildVtpImei_patternMatchesSpecification() {
+        // 99 (VTP) + 002 (Product) + 1001 (Company) + 000001 (Employee 001 padded to 6)
+        val imei1 = com.example.util.DeviceInfoManager.buildVtpImei("1001", "001")
+        assertEquals(15, imei1.length)
+        assertEquals("990021001000001", imei1)
+
+        val imei2 = com.example.util.DeviceInfoManager.buildVtpImei("1001", "452")
+        assertEquals(15, imei2.length)
+        assertEquals("990021001000452", imei2)
+
+        val imei3 = com.example.util.DeviceInfoManager.buildVtpImei("1001", "123456")
+        assertEquals(15, imei3.length)
+        assertEquals("990021001123456", imei3)
+    }
 }
 
