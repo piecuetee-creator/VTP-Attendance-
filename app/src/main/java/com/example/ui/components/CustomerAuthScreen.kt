@@ -284,15 +284,28 @@ fun CustomerAuthScreen(
                             .padding(22.dp),
                         verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
-                        // 1. Company Code (xxxx)
+                        // 1. Company Code (strictly 4 digits)
                         Column {
-                            Text(
-                                text = "Company Code",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFFF3ECE5),
-                                modifier = Modifier.padding(bottom = 6.dp)
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Company Code",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFFF3ECE5)
+                                )
+                                Text(
+                                    text = "${companyCode.length}/4 digits",
+                                    fontSize = 11.sp,
+                                    color = if (companyCode.length == 4) VtpOrange else Color(0xFF888078),
+                                    fontWeight = if (companyCode.length == 4) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
 
                             OutlinedTextField(
                                 value = companyCode,
@@ -301,7 +314,7 @@ fun CustomerAuthScreen(
                                     companyCode = clean
                                     errorMessage = null
                                 },
-                                placeholder = { Text("4 digits (e.g. 1001)", color = Color(0xFF888078)) },
+                                placeholder = { Text("Exact 4 digits (e.g. 1001)", color = Color(0xFF888078)) },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Business,
@@ -311,7 +324,7 @@ fun CustomerAuthScreen(
                                 },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
+                                    keyboardType = KeyboardType.NumberPassword,
                                     imeAction = ImeAction.Next
                                 ),
                                 colors = vtpTextFieldColors(),
@@ -322,15 +335,28 @@ fun CustomerAuthScreen(
                             )
                         }
 
-                        // 2. Employee Code (xxxxxx)
+                        // 2. Employee Code (strictly digits, 1 to 6 digits)
                         Column {
-                            Text(
-                                text = "Employee Code",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFFF3ECE5),
-                                modifier = Modifier.padding(bottom = 6.dp)
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Employee Code",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFFF3ECE5)
+                                )
+                                Text(
+                                    text = "${employeeCode.length}/6 digits",
+                                    fontSize = 11.sp,
+                                    color = if (employeeCode.isNotEmpty()) VtpOrange else Color(0xFF888078),
+                                    fontWeight = if (employeeCode.isNotEmpty()) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
 
                             OutlinedTextField(
                                 value = employeeCode,
@@ -339,7 +365,7 @@ fun CustomerAuthScreen(
                                     employeeCode = clean
                                     errorMessage = null
                                 },
-                                placeholder = { Text("e.g. 001 or 0452", color = Color(0xFF888078)) },
+                                placeholder = { Text("Up to 6 digits (e.g. 001 or 000452)", color = Color(0xFF888078)) },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Badge,
@@ -349,7 +375,7 @@ fun CustomerAuthScreen(
                                 },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
+                                    keyboardType = KeyboardType.NumberPassword,
                                     imeAction = ImeAction.Done
                                 ),
                                 keyboardActions = KeyboardActions(
@@ -389,12 +415,23 @@ fun CustomerAuthScreen(
                             Button(
                                 onClick = {
                                     focusManager.clearFocus()
-                                    if (companyCode.isBlank()) {
-                                        errorMessage = "Please enter your Company Code"
+                                    val cleanComp = companyCode.filter { it.isDigit() }
+                                    val cleanEmp = employeeCode.filter { it.isDigit() }
+
+                                    if (cleanComp.isBlank()) {
+                                        errorMessage = "Please enter your 4-digit Company Code"
                                         return@Button
                                     }
-                                    if (employeeCode.isBlank()) {
-                                        errorMessage = "Please enter your Employee Code"
+                                    if (cleanComp.length != 4) {
+                                        errorMessage = "Company Code must be exactly 4 digits (e.g. 1001)"
+                                        return@Button
+                                    }
+                                    if (cleanEmp.isBlank()) {
+                                        errorMessage = "Please enter your Employee Code (e.g. 001)"
+                                        return@Button
+                                    }
+                                    if (cleanEmp.length > 6) {
+                                        errorMessage = "Employee Code cannot exceed 6 digits"
                                         return@Button
                                     }
 
@@ -403,7 +440,7 @@ fun CustomerAuthScreen(
                                     coroutineScope.launch {
                                         delay(400)
                                         isAuthenticating = false
-                                        onLoginSuccess(companyCode, employeeCode)
+                                        onLoginSuccess(cleanComp, cleanEmp)
                                     }
                                 },
                                 enabled = !isAuthenticating,
@@ -591,7 +628,7 @@ private fun AuthenticatedSessionCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Terminal ID", fontSize = 13.sp, color = Color(0xFFA69D95))
+                    Text("IMEI", fontSize = 13.sp, color = Color(0xFFA69D95))
                     Text(
                         text = computedImei,
                         fontSize = 13.sp,

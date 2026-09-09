@@ -296,7 +296,7 @@ fun AttendanceLocationCard(
                                 .padding(horizontal = 7.dp, vertical = 3.dp)
                         ) {
                             Text(
-                                text = "15-Digit Terminal",
+                                text = "15-Digit IMEI",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = VtpOrangeDark

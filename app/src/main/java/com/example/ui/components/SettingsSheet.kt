@@ -377,13 +377,14 @@ fun SettingsContent(
                     OutlinedTextField(
                         value = companyCode,
                         onValueChange = { input ->
-                            companyCode = input.filter { it.isDigit() }.take(4)
+                            val clean = input.filter { it.isDigit() }.take(4)
+                            companyCode = clean
                             imei = DeviceInfoManager.buildVtpImei(companyCode, employeeCode, context)
                         },
-                        label = { Text("Company Code") },
+                        label = { Text("Company (4 digits)") },
                         placeholder = { Text("1001") },
                         leadingIcon = { Icon(Icons.Default.Business, contentDescription = null, tint = VtpOrange) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = vtpTextFieldColors()
@@ -392,13 +393,14 @@ fun SettingsContent(
                     OutlinedTextField(
                         value = employeeCode,
                         onValueChange = { input ->
-                            employeeCode = input.filter { it.isDigit() }.take(6)
+                            val clean = input.filter { it.isDigit() }.take(6)
+                            employeeCode = clean
                             imei = DeviceInfoManager.buildVtpImei(companyCode, employeeCode, context)
                         },
-                        label = { Text("Employee Code") },
+                        label = { Text("Employee (1-6 digits)") },
                         placeholder = { Text("001 or 0452") },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = VtpOrange) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = vtpTextFieldColors()
