@@ -185,11 +185,9 @@ fun AttendanceScreen(
             .testTag("attendance_screen"),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {},
-        containerColor = Color(0xFF090D16)
+        containerColor = Color(0xFF090D16) // Dark Theme Restored
     ) { paddingValues ->
         // Unified Single Page Layout:
-        // If not authenticated, display login page so new users enter Company and Employee code.
-        // Once authenticated, the login page is hidden and the user sees the clean Presence landing screen.
         if (!isUserLoggedIn || showLoginSheet) {
             CustomerAuthScreen(
                 employeeProfile = employeeProfile,
@@ -218,9 +216,7 @@ fun AttendanceScreen(
                     .padding(paddingValues)
             )
         } else {
-            // First Page: Clean, header-less landing screen.
-            // Center-aligned Time In & Time Out action container neatly aligned on the first page.
-            // Directly behind / below the Time In & Time Out box: Employee name, Employee code, Company code, and Location description (not lat long).
+            // First Page: Clean, header-less landing screen (Dark Theme)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -300,7 +296,7 @@ fun AttendanceScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     
-                    // --- LOGO ADDED HERE ---
+                    // --- LOGO RESTORED HERE ---
                     Image(
                         painter = painterResource(id = R.drawable.vtp_logo),
                         contentDescription = "VTP Logo",
@@ -320,19 +316,15 @@ fun AttendanceScreen(
                         isProcessingTimeOut = isProcTimeOut,
                         onTimeInClick = {
                             if (lastTimeIn != null) {
-                                // If already marked today, show existing record dialog immediately
                                 viewModel.onTimeInClicked()
                             } else {
-                                // Trigger biometric or credentials verification
                                 pendingBiometricIsTimeIn = true
                             }
                         },
                         onTimeOutClick = {
                             if (lastTimeOut != null) {
-                                // If already marked today, show existing record dialog immediately
                                 viewModel.onTimeOutClicked()
                             } else {
-                                // Trigger biometric or credentials verification
                                 pendingBiometricIsTimeIn = false
                             }
                         }
@@ -341,7 +333,6 @@ fun AttendanceScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // Detail container behind / below Time In & Time Out box:
-                    // Shows: Employee name, code, company code, and location description (not lat long)
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -369,7 +360,6 @@ fun AttendanceScreen(
                             LandingDetailRow(label = "Company Code:", value = displayCompany)
                             HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
 
-                            // Description of location, strictly NOT latitude/longitude coordinates
                             val rawLoc = (lastTimeIn?.locationName ?: lastTimeOut?.locationName ?: currentCoords.addressName ?: employeeProfile.location).trim()
                             val isCoordinateString = rawLoc.startsWith("Lat", ignoreCase = true) ||
                                     rawLoc.matches(Regex("^-?\\d+(\\.\\d+)?,\\s*-?\\d+(\\.\\d+)?$"))
@@ -435,7 +425,7 @@ fun AttendanceScreen(
         )
     }
 
-    // Biometric Verification Sheet ("not just a click")
+    // Biometric Verification Sheet
     pendingBiometricIsTimeIn?.let { isTimeIn ->
         BiometricVerificationSheet(
             isTimeIn = isTimeIn,
@@ -490,7 +480,7 @@ fun AttendanceScreen(
         )
     }
 
-    // Modal Bottom Sheets for direct deep-links if triggered
+    // Modal Bottom Sheets
     if (showConsoleSheet) {
         ConsoleLogSheet(
             logs = logs,
