@@ -299,6 +299,19 @@ fun AttendanceScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
+                    
+                    // --- LOGO ADDED HERE ---
+                    Image(
+                        painter = painterResource(id = R.drawable.vtp_logo),
+                        contentDescription = "VTP Logo",
+                        modifier = Modifier
+                            .size(110.dp) // Change this to make the logo bigger or smaller
+                            .padding(bottom = 24.dp) // Adds space between the logo and the cards below
+                            .clip(RoundedCornerShape(16.dp)), // Rounds the corners of the logo
+                        contentScale = ContentScale.Crop
+                    )
+                    // ------------------------
+
                     // Time In and Time Out side-by-side container
                     AttendanceActionCards(
                         lastTimeIn = lastTimeIn,
