@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
@@ -81,6 +82,7 @@ import com.example.ui.theme.VtpOrangeDark
 import com.example.ui.theme.VtpOrangeGradient
 import com.example.ui.theme.VtpOrangeLight
 import com.example.ui.theme.vtpTextFieldColors
+import com.example.util.BiometricAuthManager
 import com.example.util.DeviceInfoManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -482,6 +484,67 @@ fun CustomerAuthScreen(
                             }
                         }
 
+                        // Biometric Quick Authentication
+                        OutlinedButton(
+                            onClick = {
+                                focusManager.clearFocus()
+                                val cleanComp = companyCode.filter { it.isDigit() }
+                                val cleanEmp = employeeCode.filter { it.isDigit() }
+
+                                if (cleanComp.isBlank() || cleanComp.length != 4) {
+                                    errorMessage = "Valid 4-digit Company Code required for biometric login"
+                                    return@OutlinedButton
+                                }
+                                if (cleanEmp.isBlank() || cleanEmp.length > 6) {
+                                    errorMessage = "Valid Employee Code required for biometric login"
+                                    return@OutlinedButton
+                                }
+
+                                val activity = BiometricAuthManager.findFragmentActivity(context)
+                                if (activity != null) {
+                                    BiometricAuthManager.promptBiometric(
+                                        activity = activity,
+                                        title = "Presence Biometric Login",
+                                        subtitle = "Authenticate as Employee #$cleanEmp",
+                                        onSuccess = {
+                                            errorMessage = null
+                                            onLoginSuccess(cleanComp, cleanEmp)
+                                        },
+                                        onError = { _, errString ->
+                                            errorMessage = "Biometric: $errString"
+                                        },
+                                        onFailed = {
+                                            errorMessage = "Biometric not recognized. Try again."
+                                        }
+                                    )
+                                } else {
+                                    // Direct fallback
+                                    onLoginSuccess(cleanComp, cleanEmp)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("login_biometric_button"),
+                            shape = RoundedCornerShape(14.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.2.dp, VtpOrange.copy(alpha = 0.6f)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Fingerprint,
+                                contentDescription = "Biometric Login",
+                                tint = VtpOrange,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Biometric Quick Login",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+
                         if (isSwitchingAccount && isAuthenticated) {
                             Spacer(modifier = Modifier.height(6.dp))
                             TextButton(
@@ -521,7 +584,7 @@ fun CustomerAuthScreen(
 
                 // Minimal Footer Info
                 Text(
-                    text = "Presence VTP • GT06 Biometric Protocol Client",
+                    text = "Presence • Smart Attendance System",
                     fontSize = 11.sp,
                     color = Color(0xFF787068)
                 )
@@ -621,20 +684,6 @@ private fun AuthenticatedSessionCard(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Black,
                         color = VtpOrange
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("IMEI", fontSize = 13.sp, color = Color(0xFFA69D95))
-                    Text(
-                        text = computedImei,
-                        fontSize = 13.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF9E44)
                     )
                 }
             }

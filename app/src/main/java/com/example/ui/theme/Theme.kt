@@ -12,42 +12,26 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val LightColorScheme = lightColorScheme(
+private val DarkColorScheme = darkColorScheme(
     primary = VtpOrange,
     onPrimary = Color.White,
     primaryContainer = VtpOrangeContainer,
     onPrimaryContainer = VtpOnOrangeContainer,
-    secondary = VtpBlack,
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFF4F4F5),
-    onSecondaryContainer = Color(0xFF18181B),
-    tertiary = VtpOrangeDark,
-    background = SurfaceCanvas,
-    onBackground = TextPrimary,
-    surface = SurfaceCard,
-    onSurface = TextPrimary,
-    surfaceVariant = Color(0xFFF4F4F5),
-    onSurfaceVariant = TextSecondary,
-    outline = BorderMedium,
-    outlineVariant = BorderSubtle
-)
-
-private val DarkColorScheme = darkColorScheme(
-    primary = VtpOrangeLight,
-    onPrimary = Color.Black,
-    primaryContainer = Color(0xFF381804),
-    onPrimaryContainer = Color(0xFFFFD4B8),
     secondary = VtpWhite,
     onSecondary = VtpBlack,
+    secondaryContainer = Color(0xFF1E293B),
+    onSecondaryContainer = Color(0xFFF1F5F9),
     background = VtpBlack,
     onBackground = Color.White,
     surface = VtpDarkSurface,
     onSurface = Color.White,
     surfaceVariant = VtpDarkCard,
-    onSurfaceVariant = Color(0xFFA1A1AA),
+    onSurfaceVariant = Color(0xFF94A3B8),
     outline = VtpDarkBorder,
-    outlineVariant = Color(0xFF27272A)
+    outlineVariant = Color(0xFF1E293B)
 )
+
+private val LightColorScheme = DarkColorScheme // Standardize on professional dark corporate theme as shown in user screenshot
 
 @Composable
 fun MyApplicationTheme(

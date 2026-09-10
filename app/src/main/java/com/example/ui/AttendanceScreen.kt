@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Schedule
@@ -35,7 +36,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,10 +67,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -77,6 +83,7 @@ import com.example.ui.components.AttendanceHeader
 import com.example.ui.components.AttendanceLocationCard
 import com.example.ui.components.AttendanceSecondaryActions
 import com.example.ui.components.AttendanceSuccessDialog
+import com.example.ui.components.BiometricVerificationSheet
 import com.example.ui.components.ConsoleContent
 import com.example.ui.components.ConsoleLogSheet
 import com.example.ui.components.CustomerAuthScreen
@@ -84,6 +91,7 @@ import com.example.ui.components.EmployeeProfileDialog
 import com.example.ui.components.LocationSelectionDialog
 import com.example.ui.components.SettingsContent
 import com.example.ui.components.SettingsSheet
+import com.example.util.BiometricAuthManager
 import com.example.ui.theme.BorderSubtle
 import com.example.ui.theme.SurfaceCanvas
 import com.example.ui.theme.SurfaceCard
@@ -119,15 +127,21 @@ fun AttendanceScreen(
     val isDialogAlreadyMarked by viewModel.isDialogAlreadyMarked.collectAsStateWithLifecycle()
     val authState by viewModel.authState.collectAsStateWithLifecycle()
 
-    // Tab Navigation: 0 = Attendance, 1 = Settings, 2 = Console
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    // Authentication check: Is the user logged in with Company & Employee codes?
+    val isUserLoggedIn = authState.isAuthenticated &&
+            employeeProfile.companyCode.isNotBlank() &&
+            (employeeProfile.employeeCode.isNotBlank() || employeeProfile.employeeId.isNotBlank())
 
     var showConsoleSheet by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
     var showProfileDialog by remember { mutableStateOf(false) }
     var showLocationPicker by remember { mutableStateOf(false) }
+    var showLoginSheet by remember { mutableStateOf(false) }
+    // Biometric Verification Bottom Sheet state: null = hidden, true = Time In, false = Time Out
+    var pendingBiometricIsTimeIn by remember { mutableStateOf<Boolean?>(null) }
     val consoleSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val settingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -153,12 +167,16 @@ fun AttendanceScreen(
     }
 
     LaunchedEffect(Unit) {
-        locationPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+        try {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
             )
-        )
+        } catch (e: Exception) {
+            // Gracefully handle permission launch if activity is finishing or restricted
+        }
     }
 
     Scaffold(
@@ -166,301 +184,190 @@ fun AttendanceScreen(
             .fillMaxSize()
             .testTag("attendance_screen"),
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            if (selectedTab == 2 || selectedTab == 3) {
-                AttendanceHeader(
-                    connectionStatus = connectionStatus
-                )
-            }
-        },
-        bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 4.dp
-            ) {
-                NavigationBarItem(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    icon = { Icon(Icons.Default.Schedule, contentDescription = "Attendance") },
-                    label = {
-                        Text(
-                            text = "Attendance",
-                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = 12.sp
-                        )
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color.White,
-                        selectedTextColor = VtpOrange,
-                        indicatorColor = VtpOrange
-                    ),
-                    modifier = Modifier.testTag("tab_attendance")
-                )
-
-                NavigationBarItem(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.AutoMirrored.Filled.Login, contentDescription = "Login") },
-                    label = {
-                        Text(
-                            text = "Login",
-                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = 12.sp
-                        )
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color.White,
-                        selectedTextColor = VtpOrange,
-                        indicatorColor = VtpOrange
-                    ),
-                    modifier = Modifier.testTag("tab_login")
-                )
-
-                NavigationBarItem(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                    label = {
-                        Text(
-                            text = "Settings",
-                            fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = 12.sp
-                        )
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color.White,
-                        selectedTextColor = VtpOrange,
-                        indicatorColor = VtpOrange
-                    ),
-                    modifier = Modifier.testTag("tab_settings")
-                )
-
-                NavigationBarItem(
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
-                    icon = { Icon(Icons.Default.Terminal, contentDescription = "Console") },
-                    label = {
-                        Text(
-                            text = "Console",
-                            fontWeight = if (selectedTab == 3) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = 12.sp
-                        )
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color.White,
-                        selectedTextColor = VtpOrange,
-                        indicatorColor = VtpOrange
-                    ),
-                    modifier = Modifier.testTag("tab_console")
-                )
-            }
-        },
-        containerColor = SurfaceCanvas
+        topBar = {},
+        containerColor = Color(0xFF090D16)
     ) { paddingValues ->
-        when (selectedTab) {
-            // TAB 0: ATTENDANCE LANDING PAGE - Matching snippet layout:
-            // Centered Presence Logo (replacing DIB) -> "Presence" -> "Powered by VTP" -> (Time In) & (Time Out) cards
-            0 -> {
+        // Unified Single Page Layout:
+        // If not authenticated, display login page so new users enter Company and Employee code.
+        // Once authenticated, the login page is hidden and the user sees the clean Presence landing screen.
+        if (!isUserLoggedIn || showLoginSheet) {
+            CustomerAuthScreen(
+                employeeProfile = employeeProfile,
+                isAuthenticated = isUserLoggedIn,
+                onLoginSuccess = { comp, emp ->
+                    viewModel.loginWithCodes(comp, emp)
+                    showLoginSheet = false
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("Logged in successfully as $emp")
+                    }
+                },
+                onLogout = {
+                    viewModel.logout()
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("Session logged out")
+                    }
+                },
+                onNavigateToAttendance = {
+                    if (isUserLoggedIn) {
+                        showLoginSheet = false
+                    }
+                },
+                onClose = if (isUserLoggedIn) { { showLoginSheet = false } } else null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            )
+        } else {
+            // First Page: Clean, header-less landing screen.
+            // Center-aligned Time In & Time Out action container neatly aligned on the first page.
+            // Directly behind / below the Time In & Time Out box: Employee name, Employee code, Company code, and Location description (not lat long).
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                // Subtle top-right options dropdown for Settings & Logout without any header banner
+                var showOptionsMenu by remember { mutableStateOf(false) }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp, end = 12.dp),
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    IconButton(
+                        onClick = { showOptionsMenu = true },
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF131B2A).copy(alpha = 0.6f))
+                            .testTag("landing_options_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Options",
+                            tint = Color(0xFF94A3B8),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showOptionsMenu,
+                        onDismissRequest = { showOptionsMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Settings & Connection") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Settings, contentDescription = null, tint = VtpOrange)
+                            },
+                            onClick = {
+                                showOptionsMenu = false
+                                showSettingsSheet = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Console Logs") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Terminal, contentDescription = null, tint = Color(0xFF94A3B8))
+                            },
+                            onClick = {
+                                showOptionsMenu = false
+                                showConsoleSheet = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Log Out") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFEF4444))
+                            },
+                            onClick = {
+                                showOptionsMenu = false
+                                viewModel.logout()
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("Logged out successfully.")
+                                }
+                            }
+                        )
+                    }
+                }
+
+                // Centered Container: Neatly aligned Time In & Time Out container with Details Card directly behind/below it
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    // Top Row: Connection Status Pill (clean header without action buttons)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Connection Status Pill
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFF5F3F0),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E0D8))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (connectionStatus == ConnectionStatus.CONNECTED) Color(0xFF10B981)
-                                            else Color(0xFFF59E0B)
-                                        )
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (connectionStatus == ConnectionStatus.CONNECTED) "GT06 Online" else "GT06 Standby",
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF524840)
-                                )
+                    // Time In and Time Out side-by-side container
+                    AttendanceActionCards(
+                        lastTimeIn = lastTimeIn,
+                        lastTimeOut = lastTimeOut,
+                        isProcessingTimeIn = isProcTimeIn,
+                        isProcessingTimeOut = isProcTimeOut,
+                        onTimeInClick = {
+                            if (lastTimeIn != null) {
+                                // If already marked today, show existing record dialog immediately
+                                viewModel.onTimeInClicked()
+                            } else {
+                                // Trigger biometric or credentials verification
+                                pendingBiometricIsTimeIn = true
+                            }
+                        },
+                        onTimeOutClick = {
+                            if (lastTimeOut != null) {
+                                // If already marked today, show existing record dialog immediately
+                                viewModel.onTimeOutClicked()
+                            } else {
+                                // Trigger biometric or credentials verification
+                                pendingBiometricIsTimeIn = false
                             }
                         }
-                    }
+                    )
 
-                    // Main Center Section: Logo -> Presence -> Powered by VTP -> 2 Action Layouts
-                    Column(
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Detail container behind / below Time In & Time Out box:
+                    // Shows: Employee name, code, company code, and location description (not lat long)
+                    Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                            .testTag("employee_details_card"),
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xFF131B2A),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF222F48))
                     ) {
-                        // Presence App Logo (replacing DIB logo as shown in user snippet)
-                        Box(
+                        val dividerColor = Color(0xFF222F48)
+                        Column(
                             modifier = Modifier
-                                .size(82.dp)
-                                .shadow(10.dp, RoundedCornerShape(24.dp), ambientColor = VtpOrange.copy(alpha = 0.25f), spotColor = VtpOrange)
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(Color(0xFFFF3D00), Color(0xFFFF6600), Color(0xFFFFA040))
-                                    )
-                                )
-                                .border(
-                                    1.5.dp,
-                                    Brush.linearGradient(
-                                        listOf(Color.White.copy(alpha = 0.85f), Color(0xFFFF7A00))
-                                    ),
-                                    RoundedCornerShape(24.dp)
-                                ),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(horizontal = 18.dp, vertical = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_vtp_presence_logo),
-                                contentDescription = "Presence Logo",
-                                modifier = Modifier
-                                    .size(82.dp)
-                                    .clip(RoundedCornerShape(24.dp)),
-                                contentScale = ContentScale.Crop
-                            )
+                            val displayName = if (employeeProfile.name.isNotBlank()) employeeProfile.name else "Employee ${employeeProfile.employeeCode.ifBlank { employeeProfile.employeeId }}"
+                            LandingDetailRow(label = "Employee Name:", value = displayName)
+                            HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
+
+                            val displayCode = employeeProfile.employeeCode.ifBlank { employeeProfile.employeeId.ifBlank { "000001" } }
+                            LandingDetailRow(label = "Employee Code:", value = displayCode)
+                            HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
+
+                            val displayCompany = employeeProfile.companyCode.ifBlank { "1001" }
+                            LandingDetailRow(label = "Company Code:", value = displayCompany)
+                            HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
+
+                            // Description of location, strictly NOT latitude/longitude coordinates
+                            val rawLoc = (lastTimeIn?.locationName ?: lastTimeOut?.locationName ?: currentCoords.addressName ?: employeeProfile.location).trim()
+                            val isCoordinateString = rawLoc.startsWith("Lat", ignoreCase = true) ||
+                                    rawLoc.matches(Regex("^-?\\d+(\\.\\d+)?,\\s*-?\\d+(\\.\\d+)?$"))
+                            val resolvedLocation = when {
+                                rawLoc.isNotBlank() && !isCoordinateString -> rawLoc
+                                employeeProfile.location.isNotBlank() && !employeeProfile.location.startsWith("Lat", ignoreCase = true) -> employeeProfile.location
+                                else -> "Headquarters Office"
+                            }
+                            LandingDetailRow(label = "Location:", value = resolvedLocation)
                         }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // App name underneath: "Presence"
-                        Text(
-                            text = "Presence",
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Black,
-                            color = TextPrimary,
-                            letterSpacing = (-0.5).sp
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Underneath: "Powered by VTP"
-                        Text(
-                            text = "Powered by VTP",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = VtpOrangeDark,
-                            letterSpacing = 0.5.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(34.dp))
-
-                        // 2 layouts: (Time In) and (Time Out) side-by-side
-                        AttendanceActionCards(
-                            lastTimeIn = lastTimeIn,
-                            lastTimeOut = lastTimeOut,
-                            isProcessingTimeIn = isProcTimeIn,
-                            isProcessingTimeOut = isProcTimeOut,
-                            onTimeInClick = { viewModel.onTimeInClicked() },
-                            onTimeOutClick = { viewModel.onTimeOutClicked() }
-                        )
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
-
-            // TAB 1: SEPARATED LOGIN & AUTHENTICATION PAGE
-            1 -> {
-                CustomerAuthScreen(
-                    employeeProfile = employeeProfile,
-                    isAuthenticated = authState.isAuthenticated,
-                    onLoginSuccess = { comp, emp ->
-                        viewModel.loginWithCodes(comp, emp)
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Logged in successfully as $emp")
-                        }
-                        selectedTab = 0
-                    },
-                    onLogout = {
-                        viewModel.logout()
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Session logged out")
-                        }
-                    },
-                    onNavigateToAttendance = {
-                        selectedTab = 0
-                    },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                )
-            }
-
-            // TAB 2: SETTINGS (I.P., Server, Port, WebSocket, 15-Digit Terminal IMEI)
-            2 -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
-                ) {
-                    SettingsContent(
-                        profile = employeeProfile,
-                        config = socketConfig,
-                        onSaveProfile = { newProfile ->
-                            viewModel.updateProfile(newProfile)
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Profile saved successfully")
-                            }
-                        },
-                        onSaveConfig = { newConfig ->
-                            viewModel.updateSocketConfig(newConfig)
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Server & Terminal config saved successfully")
-                            }
-                        },
-                        onTestConnection = {
-                            viewModel.sendTestLoginPacket()
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Testing connection to ${socketConfig.tcpHost}:${socketConfig.tcpPort}...")
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-
-            // TAB 3: LIVE CONSOLE LOGS
-            3 -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(horizontal = 16.dp, vertical = 14.dp)
-                ) {
-                    ConsoleContent(
-                        logs = logs,
-                        connectionStatus = connectionStatus,
-                        targetUrl = if (socketConfig.useWebSocket) socketConfig.wsUrl else "${socketConfig.tcpHost}:${socketConfig.tcpPort}",
-                        onClearLogs = { viewModel.clearLogs() },
-                        onSendTestLogin = { viewModel.sendTestLoginPacket() },
-                        modifier = Modifier.fillMaxSize()
-                    )
                 }
             }
         }
@@ -515,6 +422,61 @@ fun AttendanceScreen(
         )
     }
 
+    // Biometric Verification Sheet ("not just a click")
+    pendingBiometricIsTimeIn?.let { isTimeIn ->
+        BiometricVerificationSheet(
+            isTimeIn = isTimeIn,
+            employeeName = employeeProfile.name.ifBlank { "VTP Employee" },
+            employeeCode = employeeProfile.employeeCode.ifBlank { employeeProfile.employeeId.ifBlank { "001" } },
+            imei = employeeProfile.imei,
+            onHardwarePromptRequested = {
+                val activity = BiometricAuthManager.findFragmentActivity(context)
+                if (activity != null) {
+                    BiometricAuthManager.promptBiometric(
+                        activity = activity,
+                        title = if (isTimeIn) "Verify Identity for Time In" else "Verify Identity for Time Out",
+                        subtitle = "Employee #${employeeProfile.employeeCode.ifBlank { employeeProfile.employeeId }}",
+                        onSuccess = {
+                            val action = isTimeIn
+                            pendingBiometricIsTimeIn = null
+                            if (action) {
+                                viewModel.onTimeInClicked()
+                            } else {
+                                viewModel.onTimeOutClicked()
+                            }
+                        },
+                        onError = { _, errString ->
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Biometric authentication error: $errString")
+                            }
+                        },
+                        onFailed = {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Biometric recognition failed. Please try again.")
+                            }
+                        }
+                    )
+                } else {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("Hardware biometric scanner not accessible in this context.")
+                    }
+                }
+            },
+            onVerificationSuccess = {
+                val action = isTimeIn
+                pendingBiometricIsTimeIn = null
+                if (action) {
+                    viewModel.onTimeInClicked()
+                } else {
+                    viewModel.onTimeOutClicked()
+                }
+            },
+            onDismiss = {
+                pendingBiometricIsTimeIn = null
+            }
+        )
+    }
+
     // Modal Bottom Sheets for direct deep-links if triggered
     if (showConsoleSheet) {
         ConsoleLogSheet(
@@ -532,6 +494,7 @@ fun AttendanceScreen(
         SettingsSheet(
             profile = employeeProfile,
             config = socketConfig,
+            isUserLoggedIn = isUserLoggedIn,
             onSaveProfile = { newProfile ->
                 viewModel.updateProfile(newProfile)
                 coroutineScope.launch {
@@ -546,6 +509,34 @@ fun AttendanceScreen(
             },
             onDismiss = { showSettingsSheet = false },
             sheetState = settingsSheetState
+        )
+    }
+}
+
+@Composable
+private fun LandingDetailRow(
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            color = Color(0xFF94A3B8),
+            fontWeight = FontWeight.Normal,
+            modifier = Modifier.width(120.dp)
+        )
+        Text(
+            text = value,
+            fontSize = 13.5.sp,
+            color = Color.White,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f)
         )
     }
 }

@@ -3,53 +3,53 @@ package com.example.ui.theme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// VTP Attendance Palette: Orange, Black, White
-val VtpOrange = Color(0xFFFF6600)
-val VtpOrangeDark = Color(0xFFD45200)
-val VtpOrangeLight = Color(0xFFFF8533)
-val VtpOrangeContainer = Color(0xFFFFECE0)
-val VtpOnOrangeContainer = Color(0xFF431800)
+// VTP Attendance Palette: High-End Obsidian Dark (#0A0E17 / #111928), Vibrant Electric Orange (#FF5722 / #FF6D00), Crisp Ice White
+val VtpOrange = Color(0xFFFF5722)
+val VtpOrangeDark = Color(0xFFE64A19)
+val VtpOrangeLight = Color(0xFFFF7043)
+val VtpOrangeContainer = Color(0xFF2A150A)
+val VtpOnOrangeContainer = Color(0xFFFFCCBC)
 
-val VtpBlack = Color(0xFF0C0C0D)
-val VtpDarkSurface = Color(0xFF161618)
-val VtpDarkCard = Color(0xFF1F1F23)
-val VtpDarkBorder = Color(0xFF2E2E33)
+val VtpBlack = Color(0xFF090D16)
+val VtpDarkSurface = Color(0xFF0F1523)
+val VtpDarkCard = Color(0xFF151D2E)
+val VtpDarkBorder = Color(0xFF222F48)
 
 val VtpWhite = Color(0xFFFFFFFF)
-val VtpOffWhite = Color(0xFFF7F7F8)
-val VtpLightBorder = Color(0xFFE5E7EB)
+val VtpOffWhite = Color(0xFFF1F5F9)
+val VtpLightBorder = Color(0xFF222F48)
 
 // Gradients for Modern Visual Appeal
 val VtpOrangeGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xFFFF4500), Color(0xFFFF6600), Color(0xFFFFA040))
+    colors = listOf(Color(0xFFFF3D00), Color(0xFFFF5722), Color(0xFFFF8A65))
 )
 
 val VtpSunriseGradient = Brush.linearGradient(
-    colors = listOf(Color(0xFFEA580C), Color(0xFFFF7A00), Color(0xFFFBBF24))
+    colors = listOf(Color(0xFFE64A19), Color(0xFFFF5722), Color(0xFFFF9800))
 )
 
 val VtpWarmDarkGradient = Brush.linearGradient(
-    colors = listOf(Color(0xFF1C1917), Color(0xFF141211), Color(0xFF0C0A09))
+    colors = listOf(Color(0xFF151D2E), Color(0xFF0F1523), Color(0xFF090D16))
 )
 
 val VtpHeaderGradient = Brush.verticalGradient(
-    colors = listOf(Color(0xFF1A1715), Color(0xFF12100E), Color(0xFF0A0908))
+    colors = listOf(Color(0xFF0F1523), Color(0xFF0C121E), Color(0xFF090D16))
 )
 
 val VtpCardGradient = Brush.linearGradient(
-    colors = listOf(Color(0xFFFFFFFF), Color(0xFFFFFBF7), Color(0xFFFFF5EB))
+    colors = listOf(Color(0xFF1A2336), Color(0xFF141C2B), Color(0xFF101724))
 )
 
 val VtpTimeInGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xFFEA580C), Color(0xFFFF6600), Color(0xFFFF8533))
+    colors = listOf(Color(0xFFE64A19), Color(0xFFFF5722), Color(0xFFFF7043))
 )
 
 val VtpTimeOutGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xFF262626), Color(0xFF18181B), Color(0xFF0F0F10))
+    colors = listOf(Color(0xFF1E293B), Color(0xFF151E2E), Color(0xFF0F1724))
 )
 
 val VtpGlowBorderGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xFFFF6600), Color(0xFFFBBF24), Color(0xFFFF6600))
+    colors = listOf(Color(0xFFFF5722), Color(0xFFFF9800), Color(0xFFFF5722))
 )
 
 // Primary brand colors
@@ -73,30 +73,30 @@ val DIBGoldAccent = VtpAccentGold
 val DIBGoldLight = VtpAccentGoldLight
 val DIBGoldContainer = VtpAccentGoldContainer
 
-val SurfaceCanvas = Color(0xFFF9FAFB)
-val SurfaceCard = Color(0xFFFFFFFF)
-val SurfaceCardElevated = Color(0xFFFFFFFF)
+val SurfaceCanvas = Color(0xFF090D16)
+val SurfaceCard = Color(0xFF131B2A)
+val SurfaceCardElevated = Color(0xFF192337)
 
-// Action Cards: High contrast Orange & Dark Charcoal / Black
+// Action Cards: High contrast Orange & Deep Slate
 val TimeInGreen = VtpOrange
-val TimeInGreenContainer = Color(0xFFFFECE0)
-val TimeInGreenBorder = Color(0xFFFF8533)
+val TimeInGreenContainer = Color(0xFF2A150A)
+val TimeInGreenBorder = Color(0xFFFF7043)
 
-val TimeOutAmber = Color(0xFF27272A)
-val TimeOutAmberContainer = Color(0xFFF4F4F5)
-val TimeOutAmberBorder = Color(0xFF52525B)
+val TimeOutAmber = Color(0xFF1E293B)
+val TimeOutAmberContainer = Color(0xFF131B2A)
+val TimeOutAmberBorder = Color(0xFF334155)
 
 val BiometricCyan = VtpOrange
-val BiometricCyanContainer = Color(0xFFFFECE0)
+val BiometricCyanContainer = Color(0xFF2A150A)
 
-val TextPrimary = Color(0xFF111827)
-val TextSecondary = Color(0xFF4B5563)
-val TextTertiary = Color(0xFF9CA3AF)
+val TextPrimary = Color(0xFFFFFFFF)
+val TextSecondary = Color(0xFF94A3B8)
+val TextTertiary = Color(0xFF64748B)
 
-val BorderSubtle = Color(0xFFE5E7EB)
-val BorderMedium = Color(0xFFD1D5DB)
+val BorderSubtle = Color(0xFF1E293B)
+val BorderMedium = Color(0xFF334155)
 
-val ConsoleBackground = Color(0xFF0F0F10)
-val ConsoleGreen = Color(0xFFFF8533)
-val ConsoleCyan = Color(0xFFFFA366)
+val ConsoleBackground = Color(0xFF090D16)
+val ConsoleGreen = Color(0xFFFF7043)
+val ConsoleCyan = Color(0xFF38BDF8)
 

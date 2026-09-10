@@ -68,6 +68,7 @@ import com.example.ui.theme.TimeInGreen
 import com.example.ui.theme.TimeInGreenContainer
 import com.example.ui.theme.TimeOutAmber
 import com.example.ui.theme.TimeOutAmberContainer
+import com.example.ui.theme.VtpOrange
 
 @Composable
 fun AttendanceSuccessDialog(
@@ -89,8 +90,9 @@ fun AttendanceSuccessDialog(
                 .padding(horizontal = 8.dp)
                 .testTag("attendance_dialog"),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1523)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF222F48)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -164,105 +166,45 @@ fun AttendanceSuccessDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Employee Detail Card
+                // Clean Employee Detail Card: Name, Designation, Location Description
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    color = Color(0xFF151D2E),
                     border = androidx.compose.foundation.BorderStroke(
                         1.dp,
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        Color(0xFF222F48)
                     )
                 ) {
-                    val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    val dividerColor = Color(0xFF222F48)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        ProfileDetailRow(label = "Employee ID:", value = profile.employeeId)
+                        val displayName = if (profile.name.isNotBlank()) profile.name else "Employee ${profile.employeeCode.ifBlank { profile.employeeId }}"
+                        ProfileDetailRow(label = "Employee Name:", value = displayName)
                         HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
-                        ProfileDetailRow(label = "Name:", value = profile.name)
-                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
-                        ProfileDetailRow(label = "Designation:", value = profile.designation)
-                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
-                        val resolvedLocation = record.locationName.ifBlank { profile.location }
-                        ProfileDetailRow(label = "Location:", value = resolvedLocation)
-                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
-                        ProfileDetailRow(label = "Phone IMEI:", value = record.imei)
-                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
-                        val latDir = if (record.latitude >= 0) "N" else "S"
-                        val lonDir = if (record.longitude >= 0) "E" else "W"
-                        val formattedGps = "${String.format(java.util.Locale.US, "%.5f", Math.abs(record.latitude))}° $latDir, ${String.format(java.util.Locale.US, "%.5f", Math.abs(record.longitude))}° $lonDir"
-                        ProfileDetailRow(label = "GPS Coordinates:", value = formattedGps)
-                    }
-                }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                        val displayCode = profile.employeeCode.ifBlank { profile.employeeId.ifBlank { "000001" } }
+                        ProfileDetailRow(label = "Employee Code:", value = displayCode)
+                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
 
-                // Expandable GT06 Packet Telemetry
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { showPacketDetails = !showPacketDetails }
-                        .padding(vertical = 6.dp, horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Code,
-                            contentDescription = null,
-                            tint = DIBEmeraldPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "GT06 Packet Details",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = DIBEmeraldPrimary
-                        )
-                    }
-                    Icon(
-                        imageVector = if (showPacketDetails) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = DIBEmeraldPrimary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+                        val displayCompany = profile.companyCode.ifBlank { "1001" }
+                        ProfileDetailRow(label = "Company Code:", value = displayCompany)
+                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
 
-                AnimatedVisibility(visible = showPacketDetails) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(ConsoleBackground)
-                            .padding(10.dp)
-                    ) {
-                        Text(
-                            text = "GPS: Lat ${String.format("%.4f", record.latitude)}, Lon ${String.format("%.4f", record.longitude)}",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            color = ConsoleGreen
-                        )
-                        Text(
-                            text = "IMEI: ${record.imei}",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            color = Color(0xFF38BDF8)
-                        )
-                        if (record.txHex != null) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "TX: ${record.txHex}",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp,
-                                color = Color(0xFFE2E8F0)
-                            )
+                        // Description of location, NOT latitude/longitude coordinates
+                        val rawLoc = record.locationName.trim()
+                        val isCoordinateString = rawLoc.startsWith("Lat", ignoreCase = true) ||
+                                rawLoc.matches(Regex("^-?\\d+(\\.\\d+)?,\\s*-?\\d+(\\.\\d+)?$"))
+                        val resolvedLocation = when {
+                            rawLoc.isNotBlank() && !isCoordinateString -> rawLoc
+                            profile.location.isNotBlank() && !profile.location.startsWith("Lat", ignoreCase = true) -> profile.location
+                            else -> "Headquarters Office"
                         }
+                        ProfileDetailRow(label = "Location:", value = resolvedLocation)
                     }
                 }
 
@@ -277,7 +219,7 @@ fun AttendanceSuccessDialog(
                         .testTag("dialog_ok_button"),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = DIBEmeraldPrimary,
+                        containerColor = VtpOrange,
                         contentColor = Color.White
                     )
                 ) {

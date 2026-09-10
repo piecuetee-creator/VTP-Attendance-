@@ -1,6 +1,6 @@
 {
   "name": "Presence",
-  "description": "VTP Attendance application powered by GT06 GPS protocol.",
+  "description": "Professional attendance and presence management powered by VTP.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

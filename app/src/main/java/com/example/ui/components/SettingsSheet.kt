@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
@@ -75,6 +76,7 @@ import com.example.util.DeviceInfoManager
 fun SettingsSheet(
     profile: EmployeeProfile,
     config: SocketConfig,
+    isUserLoggedIn: Boolean = false,
     onSaveProfile: (EmployeeProfile) -> Unit,
     onSaveConfig: (SocketConfig) -> Unit,
     onDismiss: () -> Unit,
@@ -128,6 +130,7 @@ fun SettingsSheet(
             SettingsContent(
                 profile = profile,
                 config = config,
+                isUserLoggedIn = isUserLoggedIn,
                 onSaveProfile = {
                     onSaveProfile(it)
                     onDismiss()
@@ -149,6 +152,7 @@ fun SettingsSheet(
 fun SettingsContent(
     profile: EmployeeProfile,
     config: SocketConfig,
+    isUserLoggedIn: Boolean = false,
     onSaveProfile: (EmployeeProfile) -> Unit,
     onSaveConfig: (SocketConfig) -> Unit,
     modifier: Modifier = Modifier,
@@ -350,7 +354,7 @@ fun SettingsContent(
                     }
                 }
 
-                // 15-Digit IMEI Visualizer
+                // 15-Digit IMEI Visualizer (Locked once user is logged in)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
@@ -358,83 +362,120 @@ fun SettingsContent(
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = livePatternImei,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            color = VtpOrange,
-                            letterSpacing = 1.sp
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = imei.ifBlank { livePatternImei },
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = VtpOrange,
+                                letterSpacing = 1.sp
+                            )
+                            if (isUserLoggedIn) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFF1E293B))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = "Locked",
+                                        tint = Color(0xFFFBBF24),
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "LOCKED",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFBBF24)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
-                // Quick Company & Employee Code inputs
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedTextField(
-                        value = companyCode,
-                        onValueChange = { input ->
-                            val clean = input.filter { it.isDigit() }.take(4)
-                            companyCode = clean
-                            imei = DeviceInfoManager.buildVtpImei(companyCode, employeeCode, context)
-                        },
-                        label = { Text("Company (4 digits)") },
-                        placeholder = { Text("1001") },
-                        leadingIcon = { Icon(Icons.Default.Business, contentDescription = null, tint = VtpOrange) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = vtpTextFieldColors()
+                if (isUserLoggedIn) {
+                    Text(
+                        text = "Terminal IMEI is securely locked to current user credentials.",
+                        fontSize = 11.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                } else {
+                    // Quick Company & Employee Code inputs (Only editable when not logged in)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = companyCode,
+                            onValueChange = { input ->
+                                val clean = input.filter { it.isDigit() }.take(4)
+                                companyCode = clean
+                                imei = DeviceInfoManager.buildVtpImei(companyCode, employeeCode, context)
+                            },
+                            label = { Text("Company (4 digits)") },
+                            placeholder = { Text("1001") },
+                            leadingIcon = { Icon(Icons.Default.Business, contentDescription = null, tint = VtpOrange) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = vtpTextFieldColors()
+                        )
+
+                        OutlinedTextField(
+                            value = employeeCode,
+                            onValueChange = { input ->
+                                val clean = input.filter { it.isDigit() }.take(6)
+                                employeeCode = clean
+                                imei = DeviceInfoManager.buildVtpImei(companyCode, employeeCode, context)
+                            },
+                            label = { Text("Employee (1-6 digits)") },
+                            placeholder = { Text("001 or 0452") },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = VtpOrange) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = vtpTextFieldColors()
+                        )
+                    }
 
                     OutlinedTextField(
-                        value = employeeCode,
+                        value = imei,
                         onValueChange = { input ->
-                            val clean = input.filter { it.isDigit() }.take(6)
-                            employeeCode = clean
-                            imei = DeviceInfoManager.buildVtpImei(companyCode, employeeCode, context)
+                            val digits = input.filter { it.isDigit() }.take(15)
+                            imei = digits
                         },
-                        label = { Text("Employee (1-6 digits)") },
-                        placeholder = { Text("001 or 0452") },
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = VtpOrange) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        modifier = Modifier.weight(1f),
+                        label = { Text("Override IMEI (15 Digits)") },
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    imei = livePatternImei
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Reset Terminal IMEI",
+                                    tint = VtpOrange
+                                )
+                            }
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("imei_input"),
                         shape = RoundedCornerShape(10.dp),
                         colors = vtpTextFieldColors()
                     )
                 }
-
-                OutlinedTextField(
-                    value = imei,
-                    onValueChange = { input ->
-                        val digits = input.filter { it.isDigit() }.take(15)
-                        imei = digits
-                    },
-                    label = { Text("Override IMEI (15 Digits)") },
-                    trailingIcon = {
-                        IconButton(
-                            onClick = {
-                                imei = livePatternImei
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Reset Terminal IMEI",
-                                tint = VtpOrange
-                            )
-                        }
-                    },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("imei_input"),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = vtpTextFieldColors()
-                )
             }
         }
 

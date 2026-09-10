@@ -116,21 +116,21 @@ private fun AttendanceGradientCard(
         label = "cardScale"
     )
 
-    // Gradient styling definitions
+    // Gradient styling definitions: Sleek obsidian glass cards with vibrant orange and slate themes
     val cardBackgroundGradient = if (isTimeIn) {
         Brush.verticalGradient(
             colors = listOf(
-                Color(0xFFFFFFFF),
-                Color(0xFFFFF7ED),
-                Color(0xFFFFEDD5)
+                Color(0xFF1F1610),
+                Color(0xFF171210),
+                Color(0xFF10131B)
             )
         )
     } else {
         Brush.verticalGradient(
             colors = listOf(
-                Color(0xFFFFFFFF),
-                Color(0xFFF9FAFB),
-                Color(0xFFF3F4F6)
+                Color(0xFF161E2E),
+                Color(0xFF121926),
+                Color(0xFF0F1523)
             )
         )
     }
@@ -138,17 +138,17 @@ private fun AttendanceGradientCard(
     val cardBorderGradient = if (isTimeIn) {
         Brush.linearGradient(
             colors = listOf(
-                Color(0xFFFF6600),
-                Color(0xFFFFA040),
-                Color(0xFFFF6600)
+                Color(0xFFFF3D00),
+                Color(0xFFFF7043),
+                Color(0xFFFF3D00)
             )
         )
     } else {
         Brush.linearGradient(
             colors = listOf(
-                Color(0xFF27272A),
-                Color(0xFF52525B),
-                Color(0xFF27272A)
+                Color(0xFF334155),
+                Color(0xFF475569),
+                Color(0xFF1E293B)
             )
         )
     }
