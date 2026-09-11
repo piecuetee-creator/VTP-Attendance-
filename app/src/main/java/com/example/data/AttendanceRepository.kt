@@ -75,23 +75,48 @@ class AttendanceRepository(private val context: Context) {
     )
     val socketConfig = _socketConfig.asStateFlow()
 
-    private val _lastTimeIn = MutableStateFlow<AttendanceRecord?>(loadSavedRecord(AttendanceType.TIME_IN))
+    private val _lastTimeIn = MutableStateFlow<AttendanceRecord?>(
+        loadSavedRecord(AttendanceType.TIME_IN, savedCompanyCode, savedEmployeeCode)
+    )
     val lastTimeIn = _lastTimeIn.asStateFlow()
 
-    private val _lastTimeOut = MutableStateFlow<AttendanceRecord?>(loadSavedRecord(AttendanceType.TIME_OUT))
+    private val _lastTimeOut = MutableStateFlow<AttendanceRecord?>(
+        loadSavedRecord(AttendanceType.TIME_OUT, savedCompanyCode, savedEmployeeCode)
+    )
     val lastTimeOut = _lastTimeOut.asStateFlow()
 
-    private fun loadSavedRecord(type: AttendanceType): AttendanceRecord? {
+    fun loadSavedRecord(
+        type: AttendanceType,
+        companyCode: String = _employeeProfile.value.companyCode,
+        employeeCode: String = _employeeProfile.value.employeeCode
+    ): AttendanceRecord? {
+        if (employeeCode.isBlank()) return null
         val today = dayKeyFormat.format(Date())
-        val prefix = "${type.name}_$today"
-        if (!prefs.contains("${prefix}_time")) return null
+        val scopedPrefix = "${type.name}_${today}_${companyCode}_${employeeCode}"
+
+        val prefix = if (prefs.contains("${scopedPrefix}_time")) {
+            scopedPrefix
+        } else {
+            // Check legacy key for backward compatibility, but strictly verify that the record belongs to this employee
+            val legacyPrefix = "${type.name}_$today"
+            val savedEmp = prefs.getString("${legacyPrefix}_empId", "") ?: ""
+            val savedComp = prefs.getString("${legacyPrefix}_comp", "") ?: ""
+            if (prefs.contains("${legacyPrefix}_time") &&
+                savedEmp == employeeCode &&
+                (savedComp.isBlank() || savedComp == companyCode)
+            ) {
+                legacyPrefix
+            } else {
+                return null
+            }
+        }
 
         val time = prefs.getLong("${prefix}_time", 0L)
         val formatted = prefs.getString("${prefix}_formatted", "") ?: ""
         val lat = prefs.getFloat("${prefix}_lat", 0f).toDouble()
         val lon = prefs.getFloat("${prefix}_lon", 0f).toDouble()
         val loc = prefs.getString("${prefix}_loc", "") ?: ""
-        val empId = prefs.getString("${prefix}_empId", "") ?: ""
+        val empId = prefs.getString("${prefix}_empId", "") ?: employeeCode
         val empName = prefs.getString("${prefix}_empName", "") ?: ""
         val imei = prefs.getString("${prefix}_imei", "") ?: ""
 
@@ -109,6 +134,11 @@ class AttendanceRepository(private val context: Context) {
         )
     }
 
+    fun clearCurrentSession() {
+        _lastTimeIn.value = null
+        _lastTimeOut.value = null
+    }
+
     fun saveAttendanceRecord(
         type: AttendanceType,
         lat: Double,
@@ -122,18 +152,19 @@ class AttendanceRepository(private val context: Context) {
         val profile = _employeeProfile.value
         val config = _socketConfig.value
         val today = dayKeyFormat.format(Date(now))
-        val prefix = "${type.name}_$today"
+        val scopedPrefix = "${type.name}_${today}_${profile.companyCode}_${profile.employeeCode}"
         val effectiveLocation = locationNameOverride?.takeIf { it.isNotBlank() } ?: profile.location
 
         prefs.edit().apply {
-            putLong("${prefix}_time", now)
-            putString("${prefix}_formatted", formattedDate)
-            putFloat("${prefix}_lat", lat.toFloat())
-            putFloat("${prefix}_lon", lon.toFloat())
-            putString("${prefix}_loc", effectiveLocation)
-            putString("${prefix}_empId", profile.employeeId)
-            putString("${prefix}_empName", profile.name)
-            putString("${prefix}_imei", config.imei)
+            putLong("${scopedPrefix}_time", now)
+            putString("${scopedPrefix}_formatted", formattedDate)
+            putFloat("${scopedPrefix}_lat", lat.toFloat())
+            putFloat("${scopedPrefix}_lon", lon.toFloat())
+            putString("${scopedPrefix}_loc", effectiveLocation)
+            putString("${scopedPrefix}_empId", profile.employeeCode)
+            putString("${scopedPrefix}_comp", profile.companyCode)
+            putString("${scopedPrefix}_empName", profile.name)
+            putString("${scopedPrefix}_imei", config.imei)
             apply()
         }
 
@@ -143,7 +174,7 @@ class AttendanceRepository(private val context: Context) {
             formattedDateTime = formattedDate,
             latitude = lat,
             longitude = lon,
-            employeeId = profile.employeeId,
+            employeeId = profile.employeeCode,
             employeeName = profile.name,
             locationName = effectiveLocation,
             imei = config.imei,
@@ -171,11 +202,25 @@ class AttendanceRepository(private val context: Context) {
         }
     }
 
-    fun resetBiometric() {
+    fun resetBiometric(
+        companyCode: String = _employeeProfile.value.companyCode,
+        employeeCode: String = _employeeProfile.value.employeeCode
+    ) {
         val today = dayKeyFormat.format(Date())
+        val inPrefix = "${AttendanceType.TIME_IN.name}_${today}_${companyCode}_${employeeCode}"
+        val outPrefix = "${AttendanceType.TIME_OUT.name}_${today}_${companyCode}_${employeeCode}"
+        val legacyIn = "${AttendanceType.TIME_IN.name}_$today"
+        val legacyOut = "${AttendanceType.TIME_OUT.name}_$today"
+
         prefs.edit().apply {
-            remove("${AttendanceType.TIME_IN.name}_${today}_time")
-            remove("${AttendanceType.TIME_OUT.name}_${today}_time")
+            remove("${inPrefix}_time")
+            remove("${inPrefix}_formatted")
+            remove("${outPrefix}_time")
+            remove("${outPrefix}_formatted")
+            remove("${legacyIn}_time")
+            remove("${legacyIn}_formatted")
+            remove("${legacyOut}_time")
+            remove("${legacyOut}_formatted")
             apply()
         }
         _lastTimeIn.value = null
@@ -198,9 +243,31 @@ class AttendanceRepository(private val context: Context) {
         val newImei = DeviceInfoManager.buildVtpImei(cleanComp, cleanEmp, context)
 
         val current = _employeeProfile.value
-        val effectiveName = name.trim().ifBlank { current.name }
-        val effectiveDesig = designation.trim().ifBlank { current.designation }
-        val effectiveLoc = location.trim().ifBlank { current.location }
+        val isDifferentUser = (current.companyCode != cleanComp || current.employeeCode != cleanEmp)
+
+        val effectiveName = if (name.isNotBlank()) {
+            name.trim()
+        } else if (isDifferentUser) {
+            ""
+        } else {
+            current.name
+        }
+
+        val effectiveDesig = if (designation.isNotBlank()) {
+            designation.trim()
+        } else if (isDifferentUser) {
+            ""
+        } else {
+            current.designation
+        }
+
+        val effectiveLoc = if (location.isNotBlank()) {
+            location.trim()
+        } else if (isDifferentUser) {
+            "Karim Chamber Offices, Karachi"
+        } else {
+            current.location
+        }
 
         val updated = current.copy(
             companyCode = cleanComp,
@@ -226,6 +293,11 @@ class AttendanceRepository(private val context: Context) {
             putBoolean("profile_fixed", true)
             apply()
         }
+
+        // Refreshed session for the logged in user:
+        // Only load attendance belonging specifically to this companyCode + employeeCode
+        _lastTimeIn.value = loadSavedRecord(AttendanceType.TIME_IN, cleanComp, cleanEmp)
+        _lastTimeOut.value = loadSavedRecord(AttendanceType.TIME_OUT, cleanComp, cleanEmp)
     }
 
     fun loginWithCodes(companyCode: String, employeeCode: String) {

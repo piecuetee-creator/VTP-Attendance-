@@ -299,6 +299,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         designation: String = "",
         location: String = ""
     ) {
+        _activeDialogRecord.value = null
+        _serverErrorMessage.value = null
+        _isDialogAlreadyMarked.value = false
         repository.loginWithDetails(companyCode, employeeCode, name, designation, location)
         _authState.value = AuthState(
             isAuthenticated = true,
@@ -306,9 +309,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             loginTime = System.currentTimeMillis()
         )
         val config = repository.socketConfig.value
+        val displayName = name.ifBlank { "Employee #$employeeCode" }
         socketClient.addLog(
             LogDirection.INFO,
-            "Logged in & Profile Fixed | $name ($designation) | Company: $companyCode, Emp: $employeeCode | Location: $location | IMEI: ${config.imei}"
+            "Logged in & Session Refreshed | $displayName ($designation) | Company: $companyCode, Emp: $employeeCode | Location: $location | IMEI: ${config.imei}"
         )
     }
 
@@ -318,6 +322,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     fun loginSuccess(employeeId: String? = null) {
         val empId = employeeId ?: employeeProfile.value.employeeId
+        _activeDialogRecord.value = null
+        _serverErrorMessage.value = null
+        _isDialogAlreadyMarked.value = false
         _authState.value = AuthState(
             isAuthenticated = true,
             employeeId = empId,
@@ -330,13 +337,19 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun logout() {
+        _activeDialogRecord.value = null
+        _serverErrorMessage.value = null
+        _isDialogAlreadyMarked.value = false
+        _isProcessingTimeIn.value = false
+        _isProcessingTimeOut.value = false
+        repository.clearCurrentSession()
         _authState.value = AuthState(
             isAuthenticated = false,
-            employeeId = employeeProfile.value.employeeId
+            employeeId = ""
         )
         socketClient.addLog(
             LogDirection.INFO,
-            "User session logged out / locked"
+            "User session logged out. Session refreshed for next login."
         )
     }
 

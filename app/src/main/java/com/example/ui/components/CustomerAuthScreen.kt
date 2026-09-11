@@ -319,11 +319,19 @@ fun CustomerAuthScreen(
                         employeeCode = employeeCode.ifBlank { employeeProfile.employeeCode },
                         computedImei = computedImei,
                         onNavigateToAttendance = onNavigateToAttendance,
-                        onSwitchAccount = { isSwitchingAccount = true },
+                        onSwitchAccount = {
+                            isSwitchingAccount = true
+                            employeeCode = ""
+                            name = ""
+                            designation = ""
+                        },
                         onLogout = if (onLogout != null) {
                             {
                                 onLogout()
                                 isSwitchingAccount = true
+                                employeeCode = ""
+                                name = ""
+                                designation = ""
                             }
                         } else null
                     )
