@@ -45,6 +45,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -479,7 +480,7 @@ fun SettingsContent(
             }
         }
 
-        // Section 3: Employee Details
+        // Section 3: Employee Details (Fixed from Login)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -493,58 +494,117 @@ fun SettingsContent(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        tint = VtpOrange,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "EMPLOYEE PROFILE",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = VtpOrange,
-                        letterSpacing = 0.5.sp
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = VtpOrange,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "EMPLOYEE PROFILE (FIXED)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = VtpOrange,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF1E293B),
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFFBBF24))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Locked",
+                                tint = Color(0xFFFBBF24),
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "LOCKED",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFBBF24)
+                            )
+                        }
+                    }
                 }
 
-                OutlinedTextField(
-                    value = empName,
-                    onValueChange = { empName = it },
-                    label = { Text("Full Name") },
-                    placeholder = { Text("e.g. John Doe") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("settings_emp_name_input"),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = vtpTextFieldColors()
+                Text(
+                    text = "Name, Designation, and Location are fixed at login and cannot be altered.",
+                    fontSize = 11.5.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                OutlinedTextField(
-                    value = empDesig,
-                    onValueChange = { empDesig = it },
-                    label = { Text("Designation") },
-                    placeholder = { Text("e.g. Field Officer") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("settings_emp_desig_input"),
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = vtpTextFieldColors()
-                )
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Full Name", fontSize = 12.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = profile.name.ifBlank { "Not Set" },
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
-                OutlinedTextField(
-                    value = empLoc,
-                    onValueChange = { empLoc = it },
-                    label = { Text("Branch / Location") },
-                    placeholder = { Text("e.g. Karim Chamber Offices, Karachi") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("settings_emp_loc_input"),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = vtpTextFieldColors()
-                )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Designation", fontSize = 12.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = profile.designation.ifBlank { "Not Set" },
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Fixed Location", fontSize = 12.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = profile.location.ifBlank { "Not Set" },
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.fillMaxWidth(0.6f)
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -575,17 +635,8 @@ fun SettingsContent(
                             useWebSocket = useWs
                         )
                     )
-                    onSaveProfile(
-                        profile.copy(
-                            companyCode = companyCode.trim(),
-                            employeeCode = employeeCode.trim(),
-                            employeeId = employeeCode.trim(),
-                            name = empName.trim(),
-                            designation = empDesig.trim(),
-                            location = empLoc.trim(),
-                            imei = cleanImei
-                        )
-                    )
+                    // Profile credentials (name, desig, loc, codes) remain locked as entered at login
+                    onSaveProfile(profile.copy(imei = cleanImei))
                     saveConfirmation = true
                 },
                 modifier = Modifier

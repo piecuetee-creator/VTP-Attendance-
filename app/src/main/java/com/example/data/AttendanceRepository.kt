@@ -162,6 +162,10 @@ class AttendanceRepository(private val context: Context) {
     }
 
     fun updateProfileLocation(newLocation: String) {
+        if (prefs.getBoolean("profile_fixed", false)) {
+            // Location is fixed from login - do not alter
+            return
+        }
         if (newLocation.isNotBlank() && _employeeProfile.value.location != newLocation) {
             updateProfile(_employeeProfile.value.copy(location = newLocation))
         }
@@ -178,7 +182,13 @@ class AttendanceRepository(private val context: Context) {
         _lastTimeOut.value = null
     }
 
-    fun loginWithCodes(companyCode: String, employeeCode: String) {
+    fun loginWithDetails(
+        companyCode: String,
+        employeeCode: String,
+        name: String = "",
+        designation: String = "",
+        location: String = ""
+    ) {
         val cleanComp = companyCode.filter { it.isDigit() }.let {
             if (it.length > 4) it.takeLast(4) else it.padStart(4, '0')
         }
@@ -188,10 +198,17 @@ class AttendanceRepository(private val context: Context) {
         val newImei = DeviceInfoManager.buildVtpImei(cleanComp, cleanEmp, context)
 
         val current = _employeeProfile.value
+        val effectiveName = name.trim().ifBlank { current.name }
+        val effectiveDesig = designation.trim().ifBlank { current.designation }
+        val effectiveLoc = location.trim().ifBlank { current.location }
+
         val updated = current.copy(
             companyCode = cleanComp,
             employeeCode = cleanEmp,
             employeeId = cleanEmp,
+            name = effectiveName,
+            designation = effectiveDesig,
+            location = effectiveLoc,
             imei = newImei
         )
         _employeeProfile.value = updated
@@ -201,15 +218,34 @@ class AttendanceRepository(private val context: Context) {
             putString("emp_company_code", cleanComp)
             putString("emp_code", cleanEmp)
             putString("emp_id", cleanEmp)
+            putString("emp_name", effectiveName)
+            putString("emp_desig", effectiveDesig)
+            putString("emp_loc", effectiveLoc)
             putString("emp_imei", newImei)
             putString("imei", newImei)
+            putBoolean("profile_fixed", true)
             apply()
         }
     }
 
+    fun loginWithCodes(companyCode: String, employeeCode: String) {
+        loginWithDetails(companyCode, employeeCode)
+    }
+
+    fun isProfileFixed(): Boolean {
+        return prefs.getBoolean("profile_fixed", false)
+    }
+
     fun updateProfile(profile: EmployeeProfile) {
+        val isFixed = isProfileFixed()
+        val current = _employeeProfile.value
         val sanitizedImei = if (profile.imei.isNotBlank()) DeviceInfoManager.sanitizeImei(profile.imei) else _socketConfig.value.imei
-        val updatedProfile = profile.copy(imei = sanitizedImei)
+        val updatedProfile = if (isFixed) {
+            // Profile details cannot be changed from settings once fixed
+            current.copy(imei = sanitizedImei)
+        } else {
+            profile.copy(imei = sanitizedImei)
+        }
         _employeeProfile.value = updatedProfile
         prefs.edit().apply {
             putString("emp_id", updatedProfile.employeeId)

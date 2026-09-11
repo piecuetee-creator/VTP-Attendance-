@@ -81,9 +81,9 @@ import com.example.network.ConnectionStatus
 import com.example.ui.components.AttendanceActionCards
 import com.example.ui.components.AttendanceHeader
 import com.example.ui.components.AttendanceLocationCard
+import androidx.biometric.BiometricPrompt
 import com.example.ui.components.AttendanceSecondaryActions
 import com.example.ui.components.AttendanceSuccessDialog
-import com.example.ui.components.BiometricVerificationSheet
 import com.example.ui.components.ConsoleContent
 import com.example.ui.components.ConsoleLogSheet
 import com.example.ui.components.CustomerAuthScreen
@@ -137,13 +137,64 @@ fun AttendanceScreen(
     var showProfileDialog by remember { mutableStateOf(false) }
     var showLocationPicker by remember { mutableStateOf(false) }
     var showLoginSheet by remember { mutableStateOf(false) }
-    // Biometric Verification Bottom Sheet state: null = hidden, true = Time In, false = Time Out
-    var pendingBiometricIsTimeIn by remember { mutableStateOf<Boolean?>(null) }
     val consoleSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val settingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Real Hardware Biometric Trigger for Time In & Time Out
+    fun triggerBiometricAttendance(isTimeIn: Boolean) {
+        val activity = BiometricAuthManager.findFragmentActivity(context)
+        val actionName = if (isTimeIn) "Time In" else "Time Out"
+        val empDisplayName = if (employeeProfile.name.isNotBlank()) employeeProfile.name else "Employee #${employeeProfile.employeeCode.ifBlank { employeeProfile.employeeId }}"
+
+        if (activity != null) {
+            val availability = BiometricAuthManager.checkBiometricAvailability(context)
+            when (availability) {
+                is BiometricAuthManager.BiometricAvailability.Available -> {
+                    BiometricAuthManager.promptBiometric(
+                        activity = activity,
+                        title = "Presence $actionName",
+                        subtitle = "Verify biometric identity for $empDisplayName",
+                        onSuccess = {
+                            if (isTimeIn) {
+                                viewModel.onTimeInClicked()
+                            } else {
+                                viewModel.onTimeOutClicked()
+                            }
+                        },
+                        onError = { errorCode, errString ->
+                            if (errorCode != BiometricPrompt.ERROR_USER_CANCELED &&
+                                errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON &&
+                                errorCode != BiometricPrompt.ERROR_CANCELED
+                            ) {
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("Biometric error: $errString")
+                                }
+                            }
+                        },
+                        onFailed = {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Biometric not recognized. Attendance not recorded.")
+                            }
+                        }
+                    )
+                }
+                is BiometricAuthManager.BiometricAvailability.Unavailable -> {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("Biometric verification required: ${availability.reason}")
+                    }
+                }
+            }
+        } else {
+            if (isTimeIn) {
+                viewModel.onTimeInClicked()
+            } else {
+                viewModel.onTimeOutClicked()
+            }
+        }
+    }
 
     // Live Clock timer
     var currentTimeString by remember { mutableStateOf("") }
@@ -192,11 +243,11 @@ fun AttendanceScreen(
             CustomerAuthScreen(
                 employeeProfile = employeeProfile,
                 isAuthenticated = isUserLoggedIn,
-                onLoginSuccess = { comp, emp ->
-                    viewModel.loginWithCodes(comp, emp)
+                onLoginSuccess = { comp, emp, name, desig, loc ->
+                    viewModel.loginWithDetails(comp, emp, name, desig, loc)
                     showLoginSheet = false
                     coroutineScope.launch {
-                        snackbarHostState.showSnackbar("Logged in successfully as $emp")
+                        snackbarHostState.showSnackbar("Logged in successfully as $name")
                     }
                 },
                 onLogout = {
@@ -346,18 +397,10 @@ fun AttendanceScreen(
                         isProcessingTimeIn = isProcTimeIn,
                         isProcessingTimeOut = isProcTimeOut,
                         onTimeInClick = {
-                            if (lastTimeIn != null) {
-                                viewModel.onTimeInClicked()
-                            } else {
-                                pendingBiometricIsTimeIn = true
-                            }
+                            triggerBiometricAttendance(isTimeIn = true)
                         },
                         onTimeOutClick = {
-                            if (lastTimeOut != null) {
-                                viewModel.onTimeOutClicked()
-                            } else {
-                                pendingBiometricIsTimeIn = false
-                            }
+                            triggerBiometricAttendance(isTimeIn = false)
                         }
                     )
 
@@ -453,61 +496,6 @@ fun AttendanceScreen(
             profile = employeeProfile,
             isAlreadyMarked = isDialogAlreadyMarked,
             onDismiss = { viewModel.dismissDialog() }
-        )
-    }
-
-    // Biometric Verification Sheet
-    pendingBiometricIsTimeIn?.let { isTimeIn ->
-        BiometricVerificationSheet(
-            isTimeIn = isTimeIn,
-            employeeName = employeeProfile.name.ifBlank { "VTP Employee" },
-            employeeCode = employeeProfile.employeeCode.ifBlank { employeeProfile.employeeId.ifBlank { "001" } },
-            imei = employeeProfile.imei,
-            onHardwarePromptRequested = {
-                val activity = BiometricAuthManager.findFragmentActivity(context)
-                if (activity != null) {
-                    BiometricAuthManager.promptBiometric(
-                        activity = activity,
-                        title = if (isTimeIn) "Verify Identity for Time In" else "Verify Identity for Time Out",
-                        subtitle = "Employee #${employeeProfile.employeeCode.ifBlank { employeeProfile.employeeId }}",
-                        onSuccess = {
-                            val action = isTimeIn
-                            pendingBiometricIsTimeIn = null
-                            if (action) {
-                                viewModel.onTimeInClicked()
-                            } else {
-                                viewModel.onTimeOutClicked()
-                            }
-                        },
-                        onError = { _, errString ->
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Biometric authentication error: $errString")
-                            }
-                        },
-                        onFailed = {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Biometric recognition failed. Please try again.")
-                            }
-                        }
-                    )
-                } else {
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("Hardware biometric scanner not accessible in this context.")
-                    }
-                }
-            },
-            onVerificationSuccess = {
-                val action = isTimeIn
-                pendingBiometricIsTimeIn = null
-                if (action) {
-                    viewModel.onTimeInClicked()
-                } else {
-                    viewModel.onTimeOutClicked()
-                }
-            },
-            onDismiss = {
-                pendingBiometricIsTimeIn = null
-            }
         )
     }
 

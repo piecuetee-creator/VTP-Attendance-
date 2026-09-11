@@ -234,8 +234,14 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         socketClient.clearLogs()
     }
 
-    fun loginWithCodes(companyCode: String, employeeCode: String) {
-        repository.loginWithCodes(companyCode, employeeCode)
+    fun loginWithDetails(
+        companyCode: String,
+        employeeCode: String,
+        name: String = "",
+        designation: String = "",
+        location: String = ""
+    ) {
+        repository.loginWithDetails(companyCode, employeeCode, name, designation, location)
         _authState.value = AuthState(
             isAuthenticated = true,
             employeeId = employeeCode,
@@ -244,8 +250,12 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         val config = repository.socketConfig.value
         socketClient.addLog(
             LogDirection.INFO,
-            "Logged in | Company: $companyCode, Employee: $employeeCode | 15-Digit IMEI: ${config.imei}"
+            "Logged in & Profile Fixed | $name ($designation) | Company: $companyCode, Emp: $employeeCode | Location: $location | IMEI: ${config.imei}"
         )
+    }
+
+    fun loginWithCodes(companyCode: String, employeeCode: String) {
+        loginWithDetails(companyCode, employeeCode)
     }
 
     fun loginSuccess(employeeId: String? = null) {
