@@ -79,11 +79,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.network.ConnectionStatus
 import com.example.ui.components.AttendanceActionCards
+import com.example.ui.components.AttendanceConfirmationCard
 import com.example.ui.components.AttendanceHeader
 import com.example.ui.components.AttendanceLocationCard
 import androidx.biometric.BiometricPrompt
 import com.example.ui.components.AttendanceSecondaryActions
-import com.example.ui.components.AttendanceSuccessDialog
 import com.example.ui.components.ConsoleContent
 import com.example.ui.components.ConsoleLogSheet
 import com.example.ui.components.CustomerAuthScreen
@@ -123,9 +123,22 @@ fun AttendanceScreen(
     val isLoadingLoc by viewModel.isLoadingLocation.collectAsStateWithLifecycle()
     val isProcTimeIn by viewModel.isProcessingTimeIn.collectAsStateWithLifecycle()
     val isProcTimeOut by viewModel.isProcessingTimeOut.collectAsStateWithLifecycle()
+    val isServerSyncing by viewModel.isServerSyncing.collectAsStateWithLifecycle()
     val activeDialogRecord by viewModel.activeDialogRecord.collectAsStateWithLifecycle()
     val isDialogAlreadyMarked by viewModel.isDialogAlreadyMarked.collectAsStateWithLifecycle()
     val authState by viewModel.authState.collectAsStateWithLifecycle()
+
+    val timeInRec = lastTimeIn
+    val timeOutRec = lastTimeOut
+    val latestAttendanceRecord = remember(timeInRec, timeOutRec) {
+        when {
+            timeInRec != null && timeOutRec != null -> {
+                if (timeOutRec.timestamp >= timeInRec.timestamp) timeOutRec else timeInRec
+            }
+            timeOutRec != null -> timeOutRec
+            else -> timeInRec
+        }
+    }
 
     // Authentication check: Is the user logged in with Company & Employee codes?
     val isUserLoggedIn = authState.isAuthenticated &&
@@ -404,47 +417,25 @@ fun AttendanceScreen(
                         }
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Detail container behind / below Time In & Time Out box:
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("employee_details_card"),
-                        shape = RoundedCornerShape(18.dp),
-                        color = Color(0xFF131B2A),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF222F48))
-                    ) {
-                        val dividerColor = Color(0xFF222F48)
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 18.dp, vertical = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            val displayName = if (employeeProfile.name.isNotBlank()) employeeProfile.name else "Employee ${employeeProfile.employeeCode.ifBlank { employeeProfile.employeeId }}"
-                            LandingDetailRow(label = "Employee Name:", value = displayName)
-                            HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
-
-                            val displayCode = employeeProfile.employeeCode.ifBlank { employeeProfile.employeeId.ifBlank { "000001" } }
-                            LandingDetailRow(label = "Employee Code:", value = displayCode)
-                            HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
-
-                            val displayCompany = employeeProfile.companyCode.ifBlank { "1001" }
-                            LandingDetailRow(label = "Company Code:", value = displayCompany)
-                            HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
-
-                            val rawLoc = (lastTimeIn?.locationName ?: lastTimeOut?.locationName ?: currentCoords.addressName ?: employeeProfile.location).trim()
-                            val isCoordinateString = rawLoc.startsWith("Lat", ignoreCase = true) ||
-                                    rawLoc.matches(Regex("^-?\\d+(\\.\\d+)?,\\s*-?\\d+(\\.\\d+)?$"))
-                            val resolvedLocation = when {
-                                rawLoc.isNotBlank() && !isCoordinateString -> rawLoc
-                                employeeProfile.location.isNotBlank() && !employeeProfile.location.startsWith("Lat", ignoreCase = true) -> employeeProfile.location
-                                else -> "Headquarters Office"
-                            }
-                            LandingDetailRow(label = "Location:", value = resolvedLocation)
-                        }
+                    // Confirmation Card underneath Time In & Time Out
+                    val rawLoc = (latestAttendanceRecord?.locationName ?: currentCoords.addressName ?: employeeProfile.location).trim()
+                    val isCoordinateString = rawLoc.startsWith("Lat", ignoreCase = true) ||
+                            rawLoc.matches(Regex("^-?\\d+(\\.\\d+)?,\\s*-?\\d+(\\.\\d+)?$"))
+                    val resolvedLocation = when {
+                        rawLoc.isNotBlank() && !isCoordinateString -> rawLoc
+                        employeeProfile.location.isNotBlank() && !employeeProfile.location.startsWith("Lat", ignoreCase = true) -> employeeProfile.location
+                        else -> "Karim Chamber Offices, Karachi"
                     }
+
+                    AttendanceConfirmationCard(
+                        record = latestAttendanceRecord,
+                        profile = employeeProfile,
+                        currentLocationName = resolvedLocation,
+                        isSyncing = isServerSyncing,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }
@@ -489,16 +480,6 @@ fun AttendanceScreen(
         )
     }
 
-    // Success Confirmation Dialog
-    activeDialogRecord?.let { record ->
-        AttendanceSuccessDialog(
-            record = record,
-            profile = employeeProfile,
-            isAlreadyMarked = isDialogAlreadyMarked,
-            onDismiss = { viewModel.dismissDialog() }
-        )
-    }
-
     // Modal Bottom Sheets
     if (showConsoleSheet) {
         ConsoleLogSheet(
@@ -531,34 +512,6 @@ fun AttendanceScreen(
             },
             onDismiss = { showSettingsSheet = false },
             sheetState = settingsSheetState
-        )
-    }
-}
-
-@Composable
-private fun LandingDetailRow(
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            color = Color(0xFF94A3B8),
-            fontWeight = FontWeight.Normal,
-            modifier = Modifier.width(120.dp)
-        )
-        Text(
-            text = value,
-            fontSize = 13.5.sp,
-            color = Color.White,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(1f)
         )
     }
 }

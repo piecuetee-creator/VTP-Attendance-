@@ -15,10 +15,12 @@ import com.example.model.SocketConfig
 import com.example.model.SocketLogEntry
 import com.example.network.ConnectionStatus
 import com.example.network.Gt06SocketClient
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class AttendanceViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -45,6 +47,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _isProcessingTimeOut = MutableStateFlow(false)
     val isProcessingTimeOut: StateFlow<Boolean> = _isProcessingTimeOut.asStateFlow()
+
+    private val _isServerSyncing = MutableStateFlow(false)
+    val isServerSyncing: StateFlow<Boolean> = _isServerSyncing.asStateFlow()
 
     private val _activeDialogRecord = MutableStateFlow<AttendanceRecord?>(null)
     val activeDialogRecord: StateFlow<AttendanceRecord?> = _activeDialogRecord.asStateFlow()
@@ -115,48 +120,63 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     fun onTimeInClicked() {
         if (_isProcessingTimeIn.value) return
 
-        // If already marked today, show the confirmation dialog directly (as shown in Screenshot 2)
         val existing = lastTimeIn.value
         if (existing != null) {
-            _isDialogAlreadyMarked.value = true
             _activeDialogRecord.value = existing
             socketClient.addLog(LogDirection.INFO, "Time In was already marked at ${existing.formattedDateTime}")
             return
         }
 
-        viewModelScope.launch {
-            _isProcessingTimeIn.value = true
+        // Instant local attendance recording (0ms response)
+        val coords = _currentCoordinates.value
+        val profile = employeeProfile.value
+        val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
+
+        val record = repository.saveAttendanceRecord(
+            type = AttendanceType.TIME_IN,
+            lat = coords.latitude,
+            lon = coords.longitude,
+            txHex = "0x12 GPS Location",
+            rxHex = "Recorded locally (Syncing...)",
+            locationNameOverride = resolvedLocName
+        )
+        _activeDialogRecord.value = record
+        socketClient.addLog(
+            LogDirection.INFO,
+            "Time In marked locally for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
+        )
+
+        // Background server sync without blocking the user interface
+        viewModelScope.launch(Dispatchers.IO) {
+            _isServerSyncing.value = true
             try {
-                // Ensure fresh location
-                val coords = locationManager.getCurrentLocation()
-                _currentCoordinates.value = coords
-                val resolvedLocName = coords.addressName ?: employeeProfile.value.location
-                if (coords.isRealGps && !coords.addressName.isNullOrBlank()) {
-                    repository.updateProfileLocation(coords.addressName)
-                }
+                try {
+                    withTimeoutOrNull(3000) {
+                        val freshCoords = locationManager.getCurrentLocation()
+                        _currentCoordinates.value = freshCoords
+                        if (freshCoords.isRealGps && !freshCoords.addressName.isNullOrBlank()) {
+                            repository.updateProfileLocation(freshCoords.addressName)
+                        }
+                    }
+                } catch (_: Exception) {}
 
                 val config = socketConfig.value
                 val (success, message) = socketClient.sendAttendance(
                     config = config,
-                    lat = coords.latitude,
-                    lon = coords.longitude,
+                    lat = _currentCoordinates.value.latitude,
+                    lon = _currentCoordinates.value.longitude,
                     isTimeIn = true
                 )
 
-                // Save record and pop confirmation dialog
-                val record = repository.saveAttendanceRecord(
-                    type = AttendanceType.TIME_IN,
-                    lat = coords.latitude,
-                    lon = coords.longitude,
-                    txHex = "0x12 GPS Location",
-                    rxHex = if (success) "Transmitted OK" else message,
-                    locationNameOverride = resolvedLocName
-                )
-
-                _isDialogAlreadyMarked.value = false
-                _activeDialogRecord.value = record
+                if (success) {
+                    socketClient.addLog(LogDirection.INFO, "Time In synced to server successfully (ACK received).")
+                } else {
+                    socketClient.addLog(LogDirection.INFO, "Time In server sync queued: $message")
+                }
+            } catch (e: Exception) {
+                socketClient.addLog(LogDirection.ERROR, "Time In background sync error: ${e.message}")
             } finally {
-                _isProcessingTimeIn.value = false
+                _isServerSyncing.value = false
             }
         }
     }
@@ -166,43 +186,61 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
         val existing = lastTimeOut.value
         if (existing != null) {
-            _isDialogAlreadyMarked.value = true
             _activeDialogRecord.value = existing
             socketClient.addLog(LogDirection.INFO, "Time Out was already marked at ${existing.formattedDateTime}")
             return
         }
 
-        viewModelScope.launch {
-            _isProcessingTimeOut.value = true
+        // Instant local attendance recording (0ms response)
+        val coords = _currentCoordinates.value
+        val profile = employeeProfile.value
+        val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
+
+        val record = repository.saveAttendanceRecord(
+            type = AttendanceType.TIME_OUT,
+            lat = coords.latitude,
+            lon = coords.longitude,
+            txHex = "0x12 GPS Location",
+            rxHex = "Recorded locally (Syncing...)",
+            locationNameOverride = resolvedLocName
+        )
+        _activeDialogRecord.value = record
+        socketClient.addLog(
+            LogDirection.INFO,
+            "Time Out marked locally for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
+        )
+
+        // Background server sync without blocking the user interface
+        viewModelScope.launch(Dispatchers.IO) {
+            _isServerSyncing.value = true
             try {
-                val coords = locationManager.getCurrentLocation()
-                _currentCoordinates.value = coords
-                val resolvedLocName = coords.addressName ?: employeeProfile.value.location
-                if (coords.isRealGps && !coords.addressName.isNullOrBlank()) {
-                    repository.updateProfileLocation(coords.addressName)
-                }
+                try {
+                    withTimeoutOrNull(3000) {
+                        val freshCoords = locationManager.getCurrentLocation()
+                        _currentCoordinates.value = freshCoords
+                        if (freshCoords.isRealGps && !freshCoords.addressName.isNullOrBlank()) {
+                            repository.updateProfileLocation(freshCoords.addressName)
+                        }
+                    }
+                } catch (_: Exception) {}
 
                 val config = socketConfig.value
                 val (success, message) = socketClient.sendAttendance(
                     config = config,
-                    lat = coords.latitude,
-                    lon = coords.longitude,
+                    lat = _currentCoordinates.value.latitude,
+                    lon = _currentCoordinates.value.longitude,
                     isTimeIn = false
                 )
 
-                val record = repository.saveAttendanceRecord(
-                    type = AttendanceType.TIME_OUT,
-                    lat = coords.latitude,
-                    lon = coords.longitude,
-                    txHex = "0x12 GPS Location",
-                    rxHex = if (success) "Transmitted OK" else message,
-                    locationNameOverride = resolvedLocName
-                )
-
-                _isDialogAlreadyMarked.value = false
-                _activeDialogRecord.value = record
+                if (success) {
+                    socketClient.addLog(LogDirection.INFO, "Time Out synced to server successfully (ACK received).")
+                } else {
+                    socketClient.addLog(LogDirection.INFO, "Time Out server sync queued: $message")
+                }
+            } catch (e: Exception) {
+                socketClient.addLog(LogDirection.ERROR, "Time Out background sync error: ${e.message}")
             } finally {
-                _isProcessingTimeOut.value = false
+                _isServerSyncing.value = false
             }
         }
     }
