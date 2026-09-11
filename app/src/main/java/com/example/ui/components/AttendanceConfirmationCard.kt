@@ -6,8 +6,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -32,7 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.AttendanceRecord
@@ -55,6 +57,24 @@ fun AttendanceConfirmationCard(
     val primaryColor = if (isTimeIn) TimeInGreen else if (isMarked) TimeOutAmber else VtpOrange
     val cardBorderColor = if (isMarked) primaryColor.copy(alpha = 0.45f) else Color(0xFF222F48)
 
+    // Data resolution
+    val displayName = if (profile.name.isNotBlank()) profile.name else "Employee ${profile.employeeCode.ifBlank { profile.employeeId }}"
+    val displayCode = profile.employeeCode.ifBlank { profile.employeeId.ifBlank { "000452" } }
+    val displayCompany = profile.companyCode.ifBlank { "1001" }
+
+    val rawLoc = (record?.locationName ?: currentLocationName.ifBlank { profile.location }).trim()
+    val isCoordinateString = rawLoc.startsWith("Lat", ignoreCase = true) ||
+            rawLoc.matches(Regex("^-?\\d+(\\.\\d+)?,\\s*-?\\d+(\\.\\d+)?$"))
+    val resolvedLocation = when {
+        rawLoc.isNotBlank() && !isCoordinateString -> rawLoc
+        profile.location.isNotBlank() && !profile.location.startsWith("Lat", ignoreCase = true) -> profile.location
+        else -> "Karim Chamber Offices, Karachi"
+    }
+    // Clean any technical plus-code prefix e.g. "R2XH+RP6, Civil Lines" -> "Civil Lines"
+    val cleanLoc = resolvedLocation
+        .replace(Regex("^[A-Z0-9]{4,8}\\+[A-Z0-9]{2,4},\\s*"), "")
+        .ifBlank { resolvedLocation }
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -66,88 +86,88 @@ fun AttendanceConfirmationCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 18.dp, vertical = 16.dp)
         ) {
             if (isMarked && record != null) {
-                // Confirmation Header
                 val actionName = if (isTimeIn) "Time In" else "Time Out"
-                val badgeContainerColor = primaryColor.copy(alpha = 0.18f)
 
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(CircleShape)
-                        .background(badgeContainerColor)
-                        .border(1.5.dp, primaryColor, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Confirmed",
-                        tint = primaryColor,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = "$actionName marked successfully!",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(3.dp))
-
-                Text(
-                    text = record.formattedDateTime,
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = VtpOrange,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Background Server Sync indicator
+                // Uncluttered, compact confirmation header
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(bottom = 4.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (isSyncing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(12.dp),
-                            strokeWidth = 1.8.dp,
-                            color = VtpOrange
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Syncing with server in background...",
-                            fontSize = 11.sp,
-                            color = VtpOrange
-                        )
-                    } else {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(primaryColor.copy(alpha = 0.18f))
+                            .border(1.5.dp, primaryColor, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.CloudDone,
-                            contentDescription = "Synced",
-                            tint = TimeInGreen,
-                            modifier = Modifier.size(13.dp)
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Confirmed",
+                            tint = primaryColor,
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Synced with Server",
-                            fontSize = 11.sp,
-                            color = TimeInGreen,
-                            fontWeight = FontWeight.Medium
+                            text = "$actionName marked successfully!",
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            Text(
+                                text = record.formattedDateTime,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = VtpOrange
+                            )
+                            Text(
+                                text = " • ",
+                                fontSize = 12.sp,
+                                color = Color(0xFF64748B)
+                            )
+                            if (isSyncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(10.dp),
+                                    strokeWidth = 1.5.dp,
+                                    color = VtpOrange
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Syncing...",
+                                    fontSize = 11.sp,
+                                    color = VtpOrange
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.CloudDone,
+                                    contentDescription = "Synced",
+                                    tint = TimeInGreen,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "Synced with Server",
+                                    fontSize = 11.sp,
+                                    color = TimeInGreen,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
             } else {
-                // Ready / Pending status
+                // Ready for attendance header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -185,42 +205,52 @@ fun AttendanceConfirmationCard(
             }
 
             Spacer(modifier = Modifier.height(14.dp))
+            HorizontalDivider(color = Color(0xFF1E283D), thickness = 0.5.dp)
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Details Box
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFF0F1523),
-                border = BorderStroke(1.dp, Color(0xFF1E283D))
+            // Column-wise details layout (2 parallel columns side-by-side)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                val dividerColor = Color(0xFF1E283D)
+                // Left Column: Name & Company Code
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val displayName = if (profile.name.isNotBlank()) profile.name else "Employee ${profile.employeeCode.ifBlank { profile.employeeId }}"
-                    ConfirmationRow(label = "Employee Name:", value = displayName)
-                    HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
+                    ColumnInfoItem(
+                        label = "EMPLOYEE NAME",
+                        value = displayName
+                    )
+                    ColumnInfoItem(
+                        label = "COMPANY CODE",
+                        value = displayCompany
+                    )
+                }
 
-                    val displayCode = profile.employeeCode.ifBlank { profile.employeeId.ifBlank { "000001" } }
-                    ConfirmationRow(label = "Employee Code:", value = displayCode)
-                    HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
+                // Vertical Divider between columns
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .fillMaxHeight()
+                        .background(Color(0xFF1E283D))
+                )
 
-                    val displayCompany = profile.companyCode.ifBlank { "1001" }
-                    ConfirmationRow(label = "Company Code:", value = displayCompany)
-                    HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
-
-                    val rawLoc = (record?.locationName ?: currentLocationName.ifBlank { profile.location }).trim()
-                    val isCoordinateString = rawLoc.startsWith("Lat", ignoreCase = true) ||
-                            rawLoc.matches(Regex("^-?\\d+(\\.\\d+)?,\\s*-?\\d+(\\.\\d+)?$"))
-                    val resolvedLocation = when {
-                        rawLoc.isNotBlank() && !isCoordinateString -> rawLoc
-                        profile.location.isNotBlank() && !profile.location.startsWith("Lat", ignoreCase = true) -> profile.location
-                        else -> "Karim Chamber Offices, Karachi"
-                    }
-                    ConfirmationRow(label = "Location:", value = resolvedLocation)
+                // Right Column: Employee Code & Location
+                Column(
+                    modifier = Modifier.weight(1.1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ColumnInfoItem(
+                        label = "EMPLOYEE CODE",
+                        value = displayCode
+                    )
+                    ColumnInfoItem(
+                        label = "LOCATION",
+                        value = cleanLoc
+                    )
                 }
             }
         }
@@ -228,25 +258,29 @@ fun AttendanceConfirmationCard(
 }
 
 @Composable
-private fun ConfirmationRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+private fun ColumnInfoItem(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
         Text(
             text = label,
-            fontSize = 12.5.sp,
-            color = Color(0xFF94A3B8),
-            fontWeight = FontWeight.Medium
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF818EA6),
+            letterSpacing = 0.5.sp
         )
+        Spacer(modifier = Modifier.height(3.dp))
         Text(
             text = value,
-            fontSize = 13.sp,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.Bold,
             color = Color.White,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.End,
-            modifier = Modifier.fillMaxWidth(0.65f)
+            lineHeight = 17.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
+

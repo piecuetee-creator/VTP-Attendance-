@@ -401,7 +401,7 @@ fun AttendanceScreen(
                         letterSpacing = 0.4.sp
                     )
 
-                    Spacer(modifier = Modifier.height(22.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     // Time In and Time Out side-by-side container
                     AttendanceActionCards(
@@ -417,7 +417,7 @@ fun AttendanceScreen(
                         }
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Confirmation Card underneath Time In & Time Out
                     val rawLoc = (latestAttendanceRecord?.locationName ?: currentCoords.addressName ?: employeeProfile.location).trim()
