@@ -26,14 +26,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -123,7 +126,7 @@ fun AttendanceScreen(
     val isLoadingLoc by viewModel.isLoadingLocation.collectAsStateWithLifecycle()
     val isProcTimeIn by viewModel.isProcessingTimeIn.collectAsStateWithLifecycle()
     val isProcTimeOut by viewModel.isProcessingTimeOut.collectAsStateWithLifecycle()
-    val isServerSyncing by viewModel.isServerSyncing.collectAsStateWithLifecycle()
+    val serverErrorMessage by viewModel.serverErrorMessage.collectAsStateWithLifecycle()
     val activeDialogRecord by viewModel.activeDialogRecord.collectAsStateWithLifecycle()
     val isDialogAlreadyMarked by viewModel.isDialogAlreadyMarked.collectAsStateWithLifecycle()
     val authState by viewModel.authState.collectAsStateWithLifecycle()
@@ -335,6 +338,19 @@ fun AttendanceScreen(
                             }
                         )
                         DropdownMenuItem(
+                            text = { Text("Reset Today's Attendance") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Refresh, contentDescription = null, tint = VtpOrange)
+                            },
+                            onClick = {
+                                showOptionsMenu = false
+                                viewModel.resetTodayAttendance()
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("Today's attendance records have been reset.")
+                                }
+                            }
+                        )
+                        DropdownMenuItem(
                             text = { Text("Log Out") },
                             leadingIcon = {
                                 Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFEF4444))
@@ -433,12 +449,54 @@ fun AttendanceScreen(
                         record = latestAttendanceRecord,
                         profile = employeeProfile,
                         currentLocationName = resolvedLocation,
-                        isSyncing = isServerSyncing,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
         }
+    }
+
+    // Server Handshake / Transmission Error Dialog
+    if (serverErrorMessage != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissServerError() },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.CloudOff,
+                        contentDescription = "Server Error",
+                        tint = Color(0xFFEF4444),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Server Connection Error",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 17.sp
+                    )
+                }
+            },
+            text = {
+                Text(
+                    text = serverErrorMessage ?: "",
+                    color = Color(0xFFCBD5E1),
+                    fontSize = 13.5.sp,
+                    lineHeight = 19.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.dismissServerError() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Dismiss", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = Color(0xFF141D2B),
+            shape = RoundedCornerShape(18.dp)
+        )
     }
 
     // Employee Profile Setup/Edit Dialog

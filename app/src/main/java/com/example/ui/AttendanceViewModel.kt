@@ -48,8 +48,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     private val _isProcessingTimeOut = MutableStateFlow(false)
     val isProcessingTimeOut: StateFlow<Boolean> = _isProcessingTimeOut.asStateFlow()
 
-    private val _isServerSyncing = MutableStateFlow(false)
-    val isServerSyncing: StateFlow<Boolean> = _isServerSyncing.asStateFlow()
+    private val _serverErrorMessage = MutableStateFlow<String?>(null)
+    val serverErrorMessage: StateFlow<String?> = _serverErrorMessage.asStateFlow()
 
     private val _activeDialogRecord = MutableStateFlow<AttendanceRecord?>(null)
     val activeDialogRecord: StateFlow<AttendanceRecord?> = _activeDialogRecord.asStateFlow()
@@ -127,29 +127,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
 
-        // Instant local attendance recording (0ms response)
-        val coords = _currentCoordinates.value
-        val profile = employeeProfile.value
-        val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
-
-        val record = repository.saveAttendanceRecord(
-            type = AttendanceType.TIME_IN,
-            lat = coords.latitude,
-            lon = coords.longitude,
-            txHex = "0x12 GPS Location",
-            rxHex = "Recorded locally (Syncing...)",
-            locationNameOverride = resolvedLocName
-        )
-        _activeDialogRecord.value = record
-        socketClient.addLog(
-            LogDirection.INFO,
-            "Time In marked locally for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
-        )
-
-        // Background server sync without blocking the user interface
-        viewModelScope.launch(Dispatchers.IO) {
-            _isServerSyncing.value = true
+        viewModelScope.launch {
+            _isProcessingTimeIn.value = true
+            _serverErrorMessage.value = null
             try {
+                // Ensure fresh location
                 try {
                     withTimeoutOrNull(3000) {
                         val freshCoords = locationManager.getCurrentLocation()
@@ -160,23 +142,47 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 } catch (_: Exception) {}
 
+                val coords = _currentCoordinates.value
+                val profile = employeeProfile.value
+                val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
                 val config = socketConfig.value
+
+                // Transmit to server and require successful handshake
                 val (success, message) = socketClient.sendAttendance(
                     config = config,
-                    lat = _currentCoordinates.value.latitude,
-                    lon = _currentCoordinates.value.longitude,
+                    lat = coords.latitude,
+                    lon = coords.longitude,
                     isTimeIn = true
                 )
 
                 if (success) {
-                    socketClient.addLog(LogDirection.INFO, "Time In synced to server successfully (ACK received).")
+                    val record = repository.saveAttendanceRecord(
+                        type = AttendanceType.TIME_IN,
+                        lat = coords.latitude,
+                        lon = coords.longitude,
+                        txHex = "0x12 GPS Location",
+                        rxHex = "Transmitted OK",
+                        locationNameOverride = resolvedLocName
+                    )
+                    _activeDialogRecord.value = record
+                    socketClient.addLog(
+                        LogDirection.INFO,
+                        "Time In marked successfully for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
+                    )
                 } else {
-                    socketClient.addLog(LogDirection.INFO, "Time In server sync queued: $message")
+                    // Handshake failed or server error: reset and notify user
+                    _activeDialogRecord.value = null
+                    val errorDetail = if (message.isNotBlank()) message else "Connection handshake failed"
+                    _serverErrorMessage.value = "Server Error: Unable to establish connection with attendance server ($errorDetail).\n\nAttendance was NOT marked. Please verify server settings or network connectivity."
+                    socketClient.addLog(LogDirection.ERROR, "Time In server transmission failed: $errorDetail")
                 }
             } catch (e: Exception) {
-                socketClient.addLog(LogDirection.ERROR, "Time In background sync error: ${e.message}")
+                _activeDialogRecord.value = null
+                val err = e.localizedMessage ?: "Unknown server error"
+                _serverErrorMessage.value = "Server Error: $err\n\nAttendance was NOT marked. Please try again."
+                socketClient.addLog(LogDirection.ERROR, "Time In unexpected error: $err")
             } finally {
-                _isServerSyncing.value = false
+                _isProcessingTimeIn.value = false
             }
         }
     }
@@ -191,28 +197,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
 
-        // Instant local attendance recording (0ms response)
-        val coords = _currentCoordinates.value
-        val profile = employeeProfile.value
-        val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
-
-        val record = repository.saveAttendanceRecord(
-            type = AttendanceType.TIME_OUT,
-            lat = coords.latitude,
-            lon = coords.longitude,
-            txHex = "0x12 GPS Location",
-            rxHex = "Recorded locally (Syncing...)",
-            locationNameOverride = resolvedLocName
-        )
-        _activeDialogRecord.value = record
-        socketClient.addLog(
-            LogDirection.INFO,
-            "Time Out marked locally for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
-        )
-
-        // Background server sync without blocking the user interface
-        viewModelScope.launch(Dispatchers.IO) {
-            _isServerSyncing.value = true
+        viewModelScope.launch {
+            _isProcessingTimeOut.value = true
+            _serverErrorMessage.value = null
             try {
                 try {
                     withTimeoutOrNull(3000) {
@@ -224,25 +211,58 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 } catch (_: Exception) {}
 
+                val coords = _currentCoordinates.value
+                val profile = employeeProfile.value
+                val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
                 val config = socketConfig.value
+
                 val (success, message) = socketClient.sendAttendance(
                     config = config,
-                    lat = _currentCoordinates.value.latitude,
-                    lon = _currentCoordinates.value.longitude,
+                    lat = coords.latitude,
+                    lon = coords.longitude,
                     isTimeIn = false
                 )
 
                 if (success) {
-                    socketClient.addLog(LogDirection.INFO, "Time Out synced to server successfully (ACK received).")
+                    val record = repository.saveAttendanceRecord(
+                        type = AttendanceType.TIME_OUT,
+                        lat = coords.latitude,
+                        lon = coords.longitude,
+                        txHex = "0x12 GPS Location",
+                        rxHex = "Transmitted OK",
+                        locationNameOverride = resolvedLocName
+                    )
+                    _activeDialogRecord.value = record
+                    socketClient.addLog(
+                        LogDirection.INFO,
+                        "Time Out marked successfully for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
+                    )
                 } else {
-                    socketClient.addLog(LogDirection.INFO, "Time Out server sync queued: $message")
+                    // Handshake failed or server error: reset and notify user
+                    _activeDialogRecord.value = null
+                    val errorDetail = if (message.isNotBlank()) message else "Connection handshake failed"
+                    _serverErrorMessage.value = "Server Error: Unable to establish connection with attendance server ($errorDetail).\n\nAttendance was NOT marked. Please verify server settings or network connectivity."
+                    socketClient.addLog(LogDirection.ERROR, "Time Out server transmission failed: $errorDetail")
                 }
             } catch (e: Exception) {
-                socketClient.addLog(LogDirection.ERROR, "Time Out background sync error: ${e.message}")
+                _activeDialogRecord.value = null
+                val err = e.localizedMessage ?: "Unknown server error"
+                _serverErrorMessage.value = "Server Error: $err\n\nAttendance was NOT marked. Please try again."
+                socketClient.addLog(LogDirection.ERROR, "Time Out unexpected error: $err")
             } finally {
-                _isServerSyncing.value = false
+                _isProcessingTimeOut.value = false
             }
         }
+    }
+
+    fun dismissServerError() {
+        _serverErrorMessage.value = null
+    }
+
+    fun resetTodayAttendance() {
+        repository.resetBiometric()
+        _activeDialogRecord.value = null
+        socketClient.addLog(LogDirection.INFO, "Today's attendance records reset.")
     }
 
     fun dismissDialog() {

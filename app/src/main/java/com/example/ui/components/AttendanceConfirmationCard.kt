@@ -19,9 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +47,6 @@ fun AttendanceConfirmationCard(
     record: AttendanceRecord?,
     profile: EmployeeProfile,
     currentLocationName: String,
-    isSyncing: Boolean,
     modifier: Modifier = Modifier
 ) {
     val isMarked = record != null
@@ -121,49 +118,13 @@ fun AttendanceConfirmationCard(
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
+                        Text(
+                            text = record.formattedDateTime,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = VtpOrange,
                             modifier = Modifier.padding(top = 2.dp)
-                        ) {
-                            Text(
-                                text = record.formattedDateTime,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = VtpOrange
-                            )
-                            Text(
-                                text = " • ",
-                                fontSize = 12.sp,
-                                color = Color(0xFF64748B)
-                            )
-                            if (isSyncing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(10.dp),
-                                    strokeWidth = 1.5.dp,
-                                    color = VtpOrange
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Syncing...",
-                                    fontSize = 11.sp,
-                                    color = VtpOrange
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.CloudDone,
-                                    contentDescription = "Synced",
-                                    tint = TimeInGreen,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text(
-                                    text = "Synced with Server",
-                                    fontSize = 11.sp,
-                                    color = TimeInGreen,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                        )
                     }
                 }
             } else {
