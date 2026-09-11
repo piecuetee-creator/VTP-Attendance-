@@ -295,18 +295,49 @@ fun AttendanceScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    
-                    // --- LOGO RESTORED HERE ---
-                    Image(
-                        painter = painterResource(id = R.drawable.vtp_logo),
-                        contentDescription = "VTP Logo",
+                    // Presence P Logo
+                    Box(
                         modifier = Modifier
-                            .size(110.dp) // Change this to make the logo bigger or smaller
-                            .padding(bottom = 24.dp) // Adds space between the logo and the cards below
-                            .clip(RoundedCornerShape(16.dp)), // Rounds the corners of the logo
-                        contentScale = ContentScale.Crop
+                            .size(86.dp)
+                            .shadow(12.dp, RoundedCornerShape(22.dp), ambientColor = Color.Black.copy(alpha = 0.35f))
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(Color.White)
+                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(22.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.presence_p_logo),
+                            contentDescription = "Presence Logo",
+                            modifier = Modifier
+                                .size(78.dp)
+                                .clip(RoundedCornerShape(18.dp)),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Underneath: "Presence"
+                    Text(
+                        text = "Presence",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        letterSpacing = (-0.5).sp
                     )
-                    // ------------------------
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    // Underneath: "Powered by VTP"
+                    Text(
+                        text = "Powered by VTP",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = VtpOrange,
+                        letterSpacing = 0.4.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(22.dp))
 
                     // Time In and Time Out side-by-side container
                     AttendanceActionCards(

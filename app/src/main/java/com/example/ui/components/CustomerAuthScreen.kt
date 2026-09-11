@@ -188,32 +188,19 @@ fun CustomerAuthScreen(
                 Box(
                     modifier = Modifier
                         .size(86.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFFF6600).copy(alpha = 0.15f))
-                        .border(1.5.dp, Color(0xFFFF6600).copy(alpha = 0.3f), CircleShape),
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(22.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Box(
+                    Image(
+                        painter = painterResource(id = R.drawable.presence_p_logo),
+                        contentDescription = "Presence Logo",
                         modifier = Modifier
-                            .size(66.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(Color(0xFFFF3D00), Color(0xFFFF6600), Color(0xFFFFA040))
-                                )
-                            )
-                            .shadow(12.dp, RoundedCornerShape(20.dp), ambientColor = VtpOrange, spotColor = VtpOrange),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_vtp_presence_logo),
-                            contentDescription = "Presence Logo",
-                            modifier = Modifier
-                                .size(66.dp)
-                                .clip(RoundedCornerShape(20.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
+                            .size(76.dp)
+                            .clip(RoundedCornerShape(18.dp)),
+                        contentScale = ContentScale.Fit
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(18.dp))
