@@ -14,7 +14,7 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.presence.attendance"
+    applicationId = "com.vtp.attendance"
     minSdk = 24
     targetSdk = 36
     versionCode = 1
@@ -31,7 +31,6 @@ android {
       keyAlias = "upload"
       keyPassword = System.getenv("KEY_PASSWORD")
     }
-    // I DELETED the "debugConfig" block here. It's not needed.
   }
 
   buildTypes {
@@ -41,10 +40,8 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
-    // I removed the custom signing config from the debug block. 
-    // Android will now automatically use its default debug key.
-    debug { 
-        // Leave this empty
+    debug {
+      // Standard debug configuration
     }
   }
   compileOptions {
@@ -91,7 +88,7 @@ dependencies {
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
+  // implementation(libs.firebase.ai)
   implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.firebase.appcheck.debug)
   implementation(libs.kotlinx.coroutines.android)
