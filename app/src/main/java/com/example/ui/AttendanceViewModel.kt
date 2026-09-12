@@ -152,7 +152,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     config = config,
                     lat = coords.latitude,
                     lon = coords.longitude,
-                    isTimeIn = true
+                    isTimeIn = true,
+                    speedKmh = coords.speedKmh,
+                    courseAngle = coords.bearing,
+                    satellitesCount = coords.satellitesCount,
+                    altitudeMeters = coords.altitudeMeters
                 )
 
                 if (success) {
@@ -160,9 +164,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         type = AttendanceType.TIME_IN,
                         lat = coords.latitude,
                         lon = coords.longitude,
-                        txHex = "0x12 GPS Location",
+                        txHex = "0x12 GPS Location (Speed: ${coords.formatSpeed()}, Angle: ${coords.formatBearing()})",
                         rxHex = "Transmitted OK",
-                        locationNameOverride = resolvedLocName
+                        locationNameOverride = resolvedLocName,
+                        speedKmh = coords.speedKmh,
+                        courseAngle = coords.bearing
                     )
                     _activeDialogRecord.value = record
                     socketClient.addLog(
@@ -220,7 +226,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     config = config,
                     lat = coords.latitude,
                     lon = coords.longitude,
-                    isTimeIn = false
+                    isTimeIn = false,
+                    speedKmh = coords.speedKmh,
+                    courseAngle = coords.bearing,
+                    satellitesCount = coords.satellitesCount,
+                    altitudeMeters = coords.altitudeMeters
                 )
 
                 if (success) {
@@ -228,9 +238,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         type = AttendanceType.TIME_OUT,
                         lat = coords.latitude,
                         lon = coords.longitude,
-                        txHex = "0x12 GPS Location",
+                        txHex = "0x12 GPS Location (Speed: ${coords.formatSpeed()}, Angle: ${coords.formatBearing()})",
                         rxHex = "Transmitted OK",
-                        locationNameOverride = resolvedLocName
+                        locationNameOverride = resolvedLocName,
+                        speedKmh = coords.speedKmh,
+                        courseAngle = coords.bearing
                     )
                     _activeDialogRecord.value = record
                     socketClient.addLog(
@@ -297,12 +309,13 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         employeeCode: String,
         name: String = "",
         designation: String = "",
-        location: String = ""
+        location: String = "",
+        serverDigits: String = "01"
     ) {
         _activeDialogRecord.value = null
         _serverErrorMessage.value = null
         _isDialogAlreadyMarked.value = false
-        repository.loginWithDetails(companyCode, employeeCode, name, designation, location)
+        repository.loginWithDetails(companyCode, employeeCode, name, designation, location, serverDigits)
         _authState.value = AuthState(
             isAuthenticated = true,
             employeeId = employeeCode,
@@ -312,12 +325,12 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         val displayName = name.ifBlank { "Employee #$employeeCode" }
         socketClient.addLog(
             LogDirection.INFO,
-            "Logged in & Session Refreshed | $displayName ($designation) | Company: $companyCode, Emp: $employeeCode | Location: $location | IMEI: ${config.imei}"
+            "Logged in & Session Refreshed | $displayName ($designation) | Company: $companyCode, Emp: $employeeCode, Srv: $serverDigits | Location: $location | IMEI: ${config.imei}"
         )
     }
 
-    fun loginWithCodes(companyCode: String, employeeCode: String) {
-        loginWithDetails(companyCode, employeeCode)
+    fun loginWithCodes(companyCode: String, employeeCode: String, serverDigits: String = "01") {
+        loginWithDetails(companyCode, employeeCode, serverDigits = serverDigits)
     }
 
     fun loginSuccess(employeeId: String? = null) {

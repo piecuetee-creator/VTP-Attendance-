@@ -259,8 +259,8 @@ fun AttendanceScreen(
             CustomerAuthScreen(
                 employeeProfile = employeeProfile,
                 isAuthenticated = isUserLoggedIn,
-                onLoginSuccess = { comp, emp, name, desig, loc ->
-                    viewModel.loginWithDetails(comp, emp, name, desig, loc)
+                onLoginSuccess = { comp, emp, name, desig, loc, srv ->
+                    viewModel.loginWithDetails(comp, emp, name, desig, loc, srv)
                     showLoginSheet = false
                     coroutineScope.launch {
                         snackbarHostState.showSnackbar("Logged in successfully as $name")

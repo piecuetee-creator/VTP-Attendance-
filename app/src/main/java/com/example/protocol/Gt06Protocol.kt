@@ -117,16 +117,31 @@ object Gt06Protocol {
      * @param lon Longitude in decimal degrees (e.g. 67.0011)
      * @param isIgnitionOn true for Check In (ACC High), false for Check Out (ACC Low)
      * @param serialNo Packet sequence number
+     * Builds a GT06 GPS Location Data Packet (Protocol 0x12).
+     * Incorporates real speed (km/h) and heading angle (0-360 degrees) with standard GT06 status flags.
+     *
+     * @param lat Latitude in decimal degrees
+     * @param lon Longitude in decimal degrees
+     * @param isIgnitionOn Boolean indicating ACC / attendance trigger state
+     * @param serialNo Packet sequence number
      * @param timestampMs Epoch timestamp in milliseconds
+     * @param speedKmh Real speed in km/h (0 to 255)
+     * @param courseAngle Direction heading in degrees (0.0 to 360.0)
+     * @param satellitesCount Visible GPS satellite count
+     * @param altitudeMeters Altitude in meters
      */
     fun buildLocationPacket(
         lat: Double,
         lon: Double,
         isIgnitionOn: Boolean,
         serialNo: Int,
-        timestampMs: Long = System.currentTimeMillis()
+        timestampMs: Long = System.currentTimeMillis(),
+        speedKmh: Float = 0f,
+        courseAngle: Float = 0f,
+        satellitesCount: Int = 11,
+        altitudeMeters: Double = 0.0
     ): ByteArray {
-        val totalLength = 36 // 2 start + 1 len + 1 proto + 6 time + 1 gps + 4 lat + 4 lon + 1 spd + 2 course + 8 lbs + 1 acc + 2 serial + 2 crc + 2 stop
+        val totalLength = 36 // 2 start + 1 len + 1 proto + 6 time + 1 gps + 4 lat + 4 lon + 1 spd + 2 course + 8 lbs + 2 serial + 2 crc + 2 stop
         val packet = ByteArray(36)
 
         // Start bits
@@ -149,8 +164,9 @@ object Gt06Protocol {
         packet[8] = (cal.get(Calendar.MINUTE) and 0xFF).toByte()
         packet[9] = (cal.get(Calendar.SECOND) and 0xFF).toByte()
 
-        // GPS Info length & Satellites count (e.g. length 12 bytes, 11 satellites = 0xCB)
-        packet[10] = 0xCB.toByte()
+        // GPS Info length (0xC for 12 bytes) & Satellites count (low nibble 0x0B = 11 satellites)
+        val clampedSats = satellitesCount.coerceIn(1, 15)
+        packet[10] = (0xC0 or (clampedSats and 0x0F)).toByte()
 
         // Latitude: degrees * 1,800,000 (Big-endian 4 bytes)
         val latUnits = (Math.abs(lat) * 1800000.0).toLong()
@@ -166,18 +182,22 @@ object Gt06Protocol {
         packet[17] = ((lonUnits ushr 8) and 0xFF).toByte()
         packet[18] = (lonUnits and 0xFF).toByte()
 
-        // Speed in km/h (0 km/h for stationary attendance point)
-        packet[19] = 0x00.toByte()
+        // Speed in km/h (1 byte: 0 to 255 km/h)
+        val clampedSpeed = speedKmh.coerceIn(0f, 255f).toInt()
+        packet[19] = (clampedSpeed and 0xFF).toByte()
 
-        // Course & Status flags (2 bytes)
-        // Bit 6: GPS tracked (1). Bit 5: lon west? (0 for East). Bit 4: lat north? (1 for North)
-        var courseFlags = 0x5400 // GPS tracked, North, East
-        if (lon < 0) courseFlags = courseFlags or 0x0800 // West longitude
-        if (lat < 0) courseFlags = courseFlags and 0x0400.inv() // South latitude
-        // Bit 1: ACC / Ignition status (1 = ON, 0 = OFF)
-        if (isIgnitionOn) {
-            courseFlags = courseFlags or 0x0002
-        }
+        // Course & Status flags (2 bytes / 16 bits):
+        // Bit 14: GPS tracked / positioned (1)
+        // Bit 12: GPS valid (1)
+        // Bit 11: 1 if West longitude, 0 if East longitude
+        // Bit 10: 1 if South latitude, 0 if North latitude
+        // Bits 0..9: Course Angle in degrees (0 to 359)
+        var statusFlags = 0x5400 // GPS tracked (0x4000) + GPS valid (0x1000) + North (0x0400)
+        if (lon < 0) statusFlags = statusFlags or 0x0800 // West longitude
+        if (lat < 0) statusFlags = statusFlags and 0x0400.inv() // South latitude
+
+        val clampedAngle = ((courseAngle % 360f + 360f) % 360f).toInt() and 0x03FF
+        val courseFlags = (statusFlags and 0xFC00) or clampedAngle
 
         packet[20] = ((courseFlags ushr 8) and 0xFF).toByte()
         packet[21] = (courseFlags and 0xFF).toByte()
@@ -206,6 +226,78 @@ object Gt06Protocol {
         packet[35] = 0x0A.toByte()
 
         return packet
+    }
+
+    data class ParsedLocation(
+        val latitude: Double,
+        val longitude: Double,
+        val speedKmh: Int,
+        val courseAngle: Int,
+        val cardinalDirection: String,
+        val satellites: Int,
+        val isGpsTracked: Boolean,
+        val isNorth: Boolean,
+        val isEast: Boolean,
+        val serialNo: Int,
+        val utcTime: String
+    )
+
+    fun parseLocationPacket(packet: ByteArray): ParsedLocation? {
+        if (packet.size < 36 || packet[3] != 0x12.toByte()) return null
+        return try {
+            val year = 2000 + (packet[4].toInt() and 0xFF)
+            val month = packet[5].toInt() and 0xFF
+            val day = packet[6].toInt() and 0xFF
+            val hour = packet[7].toInt() and 0xFF
+            val min = packet[8].toInt() and 0xFF
+            val sec = packet[9].toInt() and 0xFF
+            val utcStr = String.format(java.util.Locale.US, "%04d-%02d-%02d %02d:%02d:%02d UTC", year, month, day, hour, min, sec)
+
+            val sats = packet[10].toInt() and 0x0F
+
+            val rawLat = ((packet[11].toLong() and 0xFF) shl 24) or
+                    ((packet[12].toLong() and 0xFF) shl 16) or
+                    ((packet[13].toLong() and 0xFF) shl 8) or
+                    (packet[14].toLong() and 0xFF)
+            val lat = rawLat / 1800000.0
+
+            val rawLon = ((packet[15].toLong() and 0xFF) shl 24) or
+                    ((packet[16].toLong() and 0xFF) shl 16) or
+                    ((packet[17].toLong() and 0xFF) shl 8) or
+                    (packet[18].toLong() and 0xFF)
+            val lon = rawLon / 1800000.0
+
+            val speed = packet[19].toInt() and 0xFF
+
+            val courseHigh = packet[20].toInt() and 0xFF
+            val courseLow = packet[21].toInt() and 0xFF
+            val courseFlags = (courseHigh shl 8) or courseLow
+            val angle = courseFlags and 0x03FF
+            val isWest = (courseFlags and 0x0800) != 0
+            val isNorth = (courseFlags and 0x0400) != 0
+            val isTracked = (courseFlags and 0x4000) != 0
+
+            val directions = arrayOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
+            val cardIdx = (((angle % 360 + 360) % 360 + 11.25f) / 22.5f).toInt() % 16
+
+            val serial = ((packet[30].toInt() and 0xFF) shl 8) or (packet[31].toInt() and 0xFF)
+
+            ParsedLocation(
+                latitude = if (isNorth) lat else -lat,
+                longitude = if (isWest) -lon else lon,
+                speedKmh = speed,
+                courseAngle = angle,
+                cardinalDirection = directions[cardIdx],
+                satellites = sats,
+                isGpsTracked = isTracked,
+                isNorth = isNorth,
+                isEast = !isWest,
+                serialNo = serial,
+                utcTime = utcStr
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**

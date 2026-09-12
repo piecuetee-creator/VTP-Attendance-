@@ -80,22 +80,37 @@ class Gt06SocketClient {
 
     /**
      * Transmits GT06 attendance data (Login followed by Location Packet).
+     * Includes proper speed (km/h), course heading angle, satellites, and altitude.
      * @return Pair<Boolean, String?>: Success flag and error/status message
      */
     suspend fun sendAttendance(
         config: SocketConfig,
         lat: Double,
         lon: Double,
-        isTimeIn: Boolean
+        isTimeIn: Boolean,
+        speedKmh: Float = 0f,
+        courseAngle: Float = 0f,
+        satellitesCount: Int = 11,
+        altitudeMeters: Double = 15.0
     ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
-        val actionName = if (isTimeIn) "Time In (ACC ON)" else "Time Out (ACC OFF)"
+        val actionName = if (isTimeIn) "Time In" else "Time Out"
+        val directions = arrayOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
+        val deg = ((courseAngle % 360f + 360f) % 360f).toInt()
+        val cardIdx = (((deg + 11.25f) / 22.5f).toInt()) % 16
+        val cardinal = directions[cardIdx]
+        val angleStr = "$deg° ($cardinal)"
+        val speedStr = if (speedKmh <= 0.1f) "0 km/h" else "${String.format(java.util.Locale.US, "%.1f", speedKmh)} km/h"
+
         addLog(LogDirection.INFO, "Initiating GT06 transmission for $actionName...")
-        addLog(LogDirection.INFO, "Target Coordinates: Lat $lat, Lon $lon | IMEI: ${config.imei}")
+        addLog(
+            LogDirection.INFO,
+            "Packet Telemetry -> Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} | Speed: $speedStr | Angle: $angleStr | Sats: $satellitesCount | Alt: ${altitudeMeters.toInt()}m | IMEI: ${config.imei}"
+        )
 
         if (config.useWebSocket) {
-            sendViaWebSocket(config, lat, lon, isTimeIn)
+            sendViaWebSocket(config, lat, lon, isTimeIn, speedKmh, courseAngle, satellitesCount, altitudeMeters)
         } else {
-            sendViaRawTcp(config, lat, lon, isTimeIn)
+            sendViaRawTcp(config, lat, lon, isTimeIn, speedKmh, courseAngle, satellitesCount, altitudeMeters)
         }
     }
 
@@ -103,7 +118,11 @@ class Gt06SocketClient {
         config: SocketConfig,
         lat: Double,
         lon: Double,
-        isTimeIn: Boolean
+        isTimeIn: Boolean,
+        speedKmh: Float = 0f,
+        courseAngle: Float = 0f,
+        satellitesCount: Int = 11,
+        altitudeMeters: Double = 15.0
     ): Pair<Boolean, String> {
         _connectionStatus.value = ConnectionStatus.CONNECTING
         addLog(LogDirection.INFO, "Connecting to WebSocket: ${config.wsUrl}...")
@@ -159,7 +178,7 @@ class Gt06SocketClient {
             addLog(LogDirection.ERROR, "Could not establish WebSocket handshake with ${config.wsUrl}.")
             addLog(LogDirection.INFO, "Attempting direct TCP connection to ${config.tcpHost}:${config.tcpPort}...")
             ws.cancel()
-            return sendViaRawTcp(config, lat, lon, isTimeIn)
+            return sendViaRawTcp(config, lat, lon, isTimeIn, speedKmh, courseAngle, satellitesCount, altitudeMeters)
         }
 
         try {
@@ -179,19 +198,28 @@ class Gt06SocketClient {
             // Brief delay for packet pacing
             kotlinx.coroutines.delay(400)
 
-            // 2. Send Location Packet
+            // 2. Send Location Packet with Speed & Angle
             val serialLoc = serialCounter.getAndIncrement() and 0xFFFF
             val locationPacket = Gt06Protocol.buildLocationPacket(
                 lat = lat,
                 lon = lon,
                 isIgnitionOn = isTimeIn,
-                serialNo = serialLoc
+                serialNo = serialLoc,
+                speedKmh = speedKmh,
+                courseAngle = courseAngle,
+                satellitesCount = satellitesCount,
+                altitudeMeters = altitudeMeters
             )
             val locHex = Gt06Protocol.bytesToHex(locationPacket)
+            val parsed = Gt06Protocol.parseLocationPacket(locationPacket)
+            val spdDisplay = parsed?.let { "${it.speedKmh} km/h" } ?: "${speedKmh.toInt()} km/h"
+            val angDisplay = parsed?.let { "${it.courseAngle}° (${it.cardinalDirection})" } ?: "${courseAngle.toInt()}°"
+            val satsDisplay = "${parsed?.satellites ?: satellitesCount} Sats"
+
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
                 LogDirection.TX,
-                "TX GT06 Location Packet (0x12) | Lat: $lat, Lon: $lon (ACC=${if (isTimeIn) "1/IN" else "0/OUT"}, ${locationPacket.size} bytes):",
+                "TX GT06 Location Packet (0x12) | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
                 locHex
             )
 
@@ -216,7 +244,11 @@ class Gt06SocketClient {
         config: SocketConfig,
         lat: Double,
         lon: Double,
-        isTimeIn: Boolean
+        isTimeIn: Boolean,
+        speedKmh: Float = 0f,
+        courseAngle: Float = 0f,
+        satellitesCount: Int = 11,
+        altitudeMeters: Double = 15.0
     ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         var socket: Socket? = null
         try {
@@ -264,19 +296,28 @@ class Gt06SocketClient {
                 // Ignore timeout on optional ACK
             }
 
-            // 2. Build and send Location Packet
+            // 2. Build and send Location Packet with Speed & Angle
             val serialLoc = serialCounter.getAndIncrement() and 0xFFFF
             val locationPacket = Gt06Protocol.buildLocationPacket(
                 lat = lat,
                 lon = lon,
                 isIgnitionOn = isTimeIn,
-                serialNo = serialLoc
+                serialNo = serialLoc,
+                speedKmh = speedKmh,
+                courseAngle = courseAngle,
+                satellitesCount = satellitesCount,
+                altitudeMeters = altitudeMeters
             )
             val locHex = Gt06Protocol.bytesToHex(locationPacket)
+            val parsed = Gt06Protocol.parseLocationPacket(locationPacket)
+            val spdDisplay = parsed?.let { "${it.speedKmh} km/h" } ?: "${speedKmh.toInt()} km/h"
+            val angDisplay = parsed?.let { "${it.courseAngle}° (${it.cardinalDirection})" } ?: "${courseAngle.toInt()}°"
+            val satsDisplay = "${parsed?.satellites ?: satellitesCount} Sats"
+
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
                 LogDirection.TX,
-                "TX GT06 Location Packet (0x12) | Lat: $lat, Lon: $lon (ACC=${if (isTimeIn) "1/IN" else "0/OUT"}, ${locationPacket.size} bytes):",
+                "TX GT06 Location Packet (0x12) | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
                 locHex
             )
 

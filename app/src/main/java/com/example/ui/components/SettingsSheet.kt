@@ -162,6 +162,7 @@ fun SettingsContent(
     val context = LocalContext.current
     var companyCode by remember { mutableStateOf(profile.companyCode.ifBlank { "1001" }) }
     var employeeCode by remember { mutableStateOf(profile.employeeCode.ifBlank { profile.employeeId.ifBlank { "0452" } }) }
+    var serverDigits by remember { mutableStateOf(config.serverDigits.ifBlank { "01" }) }
 
     var imei by remember { mutableStateOf(config.imei) }
     var wsUrl by remember { mutableStateOf(config.wsUrl) }
@@ -171,9 +172,12 @@ fun SettingsContent(
 
     var saveConfirmation by remember { mutableStateOf(false) }
 
+    val activeCompanyCode = if (isUserLoggedIn) profile.companyCode.ifBlank { companyCode } else companyCode
+    val activeEmployeeCode = if (isUserLoggedIn) profile.employeeCode.ifBlank { employeeCode } else employeeCode
+
     // Live computed 15-digit IMEI
-    val livePatternImei = remember(companyCode, employeeCode) {
-        DeviceInfoManager.buildVtpImei(companyCode, employeeCode, context)
+    val livePatternImei = remember(activeCompanyCode, activeEmployeeCode, serverDigits) {
+        DeviceInfoManager.buildVtpImei(activeCompanyCode, activeEmployeeCode, serverDigits, context)
     }
 
     Column(
@@ -297,6 +301,33 @@ fun SettingsContent(
                     shape = RoundedCornerShape(10.dp),
                     colors = vtpTextFieldColors()
                 )
+
+                // Server Code (2 digits) - Fixed by default, adjustable in settings
+                OutlinedTextField(
+                    value = serverDigits,
+                    onValueChange = { input ->
+                        val clean = input.filter { it.isDigit() }.take(2)
+                        serverDigits = clean
+                        val recomputed = DeviceInfoManager.buildVtpImei(activeCompanyCode, activeEmployeeCode, clean, context)
+                        imei = recomputed
+                    },
+                    label = { Text("Server Code (2 digits)") },
+                    placeholder = { Text("01") },
+                    leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null, tint = VtpOrange) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("settings_server_code_input"),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = vtpTextFieldColors(),
+                    supportingText = {
+                        Text(
+                            text = "Protocol server code (default: 01). Automatically updates terminal IMEI.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                )
             }
         }
 
@@ -400,11 +431,19 @@ fun SettingsContent(
                 }
 
                 if (isUserLoggedIn) {
-                    Text(
-                        text = "Terminal IMEI is securely locked to current user credentials.",
-                        fontSize = 11.5.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "Terminal IMEI is securely generated with active user credentials.",
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Active Server Code: $serverDigits (adjustable in Server Configuration above)",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = VtpOrange
+                        )
+                    }
                 } else {
                     // Quick Company & Employee Code inputs (Only editable when not logged in)
                     Row(
@@ -416,9 +455,9 @@ fun SettingsContent(
                             onValueChange = { input ->
                                 val clean = input.filter { it.isDigit() }.take(4)
                                 companyCode = clean
-                                imei = DeviceInfoManager.buildVtpImei(companyCode, employeeCode, context)
+                                imei = DeviceInfoManager.buildVtpImei(companyCode, employeeCode, serverDigits, context)
                             },
-                            label = { Text("Company (4 digits)") },
+                            label = { Text("Company (4)") },
                             placeholder = { Text("1001") },
                             leadingIcon = { Icon(Icons.Default.Business, contentDescription = null, tint = VtpOrange) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
@@ -430,12 +469,12 @@ fun SettingsContent(
                         OutlinedTextField(
                             value = employeeCode,
                             onValueChange = { input ->
-                                val clean = input.filter { it.isDigit() }.take(6)
+                                val clean = input.filter { it.isDigit() }.take(4)
                                 employeeCode = clean
-                                imei = DeviceInfoManager.buildVtpImei(companyCode, employeeCode, context)
+                                imei = DeviceInfoManager.buildVtpImei(companyCode, employeeCode, serverDigits, context)
                             },
-                            label = { Text("Employee (1-6 digits)") },
-                            placeholder = { Text("001 or 0452") },
+                            label = { Text("Employee (4)") },
+                            placeholder = { Text("0452") },
                             leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = VtpOrange) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                             modifier = Modifier.weight(1f),
@@ -492,7 +531,15 @@ fun SettingsContent(
             Button(
                 onClick = {
                     val port = tcpPort.toIntOrNull() ?: 5200
-                    val cleanImei = DeviceInfoManager.sanitizeImei(imei.ifBlank { livePatternImei })
+                    val cleanServer = serverDigits.filter { it.isDigit() }.let {
+                        if (it.length > 2) it.takeLast(2) else it.padStart(2, '0')
+                    }.ifBlank { "01" }
+
+                    val cleanImei = if (imei.isNotBlank() && imei != livePatternImei && !isUserLoggedIn) {
+                        DeviceInfoManager.sanitizeImei(imei)
+                    } else {
+                        DeviceInfoManager.buildVtpImei(activeCompanyCode, activeEmployeeCode, cleanServer, context)
+                    }
 
                     onSaveConfig(
                         config.copy(
@@ -500,11 +547,19 @@ fun SettingsContent(
                             wsUrl = wsUrl.trim(),
                             tcpHost = tcpHost.trim(),
                             tcpPort = port,
-                            useWebSocket = useWs
+                            useWebSocket = useWs,
+                            serverDigits = cleanServer
                         )
                     )
-                    // Profile credentials (name, desig, loc, codes) remain locked as entered at login
-                    onSaveProfile(profile.copy(imei = cleanImei))
+                    // Profile credentials (name, desig, loc, codes) remain locked as entered at login,
+                    // but IMEI and serverDigits are updated with the new server code
+                    onSaveProfile(
+                        profile.copy(
+                            imei = cleanImei,
+                            serverDigits = cleanServer
+                        )
+                    )
+                    imei = cleanImei
                     saveConfirmation = true
                 },
                 modifier = Modifier

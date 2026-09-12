@@ -77,24 +77,40 @@ object DeviceInfoManager {
 
     /**
      * Builds a 15-digit IMEI adhering strictly to the internal VTP specification:
-     * - "99"     : VTP (fix) (2 digits)
-     * - "002"    : Product (fix) (3 digits)
-     * - "xxxx"   : Company code (4 digits, numeric, e.g. 1001)
-     * - "xxxxxx" : Employee code (6 digits, numeric, padded with leading zeros, e.g. 001 -> 000001)
-     * Pattern: 99002xxxxxxxxxx (Total = 2 + 3 + 4 + 6 = 15 digits)
+     * - "99"   : VTP (fix) (2 digits)
+     * - "002"  : Product (fix) (3 digits)
+     * - "xxxx" : Company code (4 digits, numeric, e.g. 1001)
+     * - "xxxx" : Employee code (4 digits, numeric, padded with leading zeros, e.g. 0452)
+     * - "xx"   : Server digits (2 digits, numeric, e.g. 01)
+     * Pattern: 99002 + Company(4) + Employee(4) + Server(2) -> Total = 2 + 3 + 4 + 4 + 2 = 15 digits
      */
     fun buildVtpImei(
         companyCode: String,
         employeeCode: String,
+        serverDigits: String = "01",
         @Suppress("UNUSED_PARAMETER") context: Context? = null
     ): String {
         val cleanComp = companyCode.filter { it.isDigit() }.let {
             if (it.length > 4) it.takeLast(4) else it.padStart(4, '0')
         }
         val cleanEmp = employeeCode.filter { it.isDigit() }.let {
-            if (it.length > 6) it.takeLast(6) else it.padStart(6, '0')
+            if (it.length > 4) it.takeLast(4) else it.padStart(4, '0')
         }
-        return "99002$cleanComp$cleanEmp"
+        val cleanServer = serverDigits.filter { it.isDigit() }.let {
+            if (it.length > 2) it.takeLast(2) else it.padStart(2, '0')
+        }
+        return "99002$cleanComp$cleanEmp$cleanServer"
+    }
+
+    /**
+     * Compatibility overload for callers passing context as 3rd parameter.
+     */
+    fun buildVtpImei(
+        companyCode: String,
+        employeeCode: String,
+        context: Context?
+    ): String {
+        return buildVtpImei(companyCode = companyCode, employeeCode = employeeCode, serverDigits = "01", context = context)
     }
 
     fun getSavedRandomSuffix(context: Context): String {

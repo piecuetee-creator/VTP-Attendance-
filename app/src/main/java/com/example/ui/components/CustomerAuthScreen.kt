@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MyLocation
@@ -99,7 +100,7 @@ import kotlinx.coroutines.launch
 fun CustomerAuthScreen(
     employeeProfile: EmployeeProfile,
     isAuthenticated: Boolean = false,
-    onLoginSuccess: (companyCode: String, employeeCode: String, name: String, designation: String, location: String) -> Unit,
+    onLoginSuccess: (companyCode: String, employeeCode: String, name: String, designation: String, location: String, serverDigits: String) -> Unit,
     onLogout: (() -> Unit)? = null,
     onNavigateToAttendance: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null,
@@ -192,9 +193,10 @@ fun CustomerAuthScreen(
         }
     }
 
-    // Live preview of the 15-digit IMEI
-    val computedImei = remember(companyCode, employeeCode) {
-        DeviceInfoManager.buildVtpImei(companyCode, employeeCode, context)
+    // Live preview of the 15-digit IMEI using fixed server digits from settings
+    val fixedServerDigits = employeeProfile.serverDigits.ifBlank { "01" }
+    val computedImei = remember(companyCode, employeeCode, fixedServerDigits) {
+        DeviceInfoManager.buildVtpImei(companyCode, employeeCode, fixedServerDigits, context)
     }
 
     val interactionSource = remember { MutableInteractionSource() }
@@ -437,7 +439,7 @@ fun CustomerAuthScreen(
                                 )
                             }
 
-                            // 2. Employee Code (strictly digits, 1 to 6 digits)
+                            // 2. Employee Code (strictly digits, 1 to 4 digits)
                             Column {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -451,7 +453,7 @@ fun CustomerAuthScreen(
                                         color = Color(0xFFF3ECE5)
                                     )
                                     Text(
-                                        text = "${employeeCode.length}/6 digits",
+                                        text = "${employeeCode.length}/4 digits",
                                         fontSize = 11.sp,
                                         color = if (employeeCode.isNotEmpty()) VtpOrange else Color(0xFF888078),
                                         fontWeight = if (employeeCode.isNotEmpty()) FontWeight.Bold else FontWeight.Normal
@@ -463,11 +465,11 @@ fun CustomerAuthScreen(
                                 OutlinedTextField(
                                     value = employeeCode,
                                     onValueChange = { input ->
-                                        val clean = input.filter { it.isDigit() }.take(6)
+                                        val clean = input.filter { it.isDigit() }.take(4)
                                         employeeCode = clean
                                         errorMessage = null
                                     },
-                                    placeholder = { Text("Up to 6 digits (e.g. 001 or 0452)", color = Color(0xFF888078)) },
+                                    placeholder = { Text("Up to 4 digits (e.g. 0452 or 0001)", color = Color(0xFF888078)) },
                                     leadingIcon = {
                                         Icon(
                                             imageVector = Icons.Default.Badge,
@@ -695,6 +697,9 @@ fun CustomerAuthScreen(
                                         focusManager.clearFocus()
                                         val cleanComp = companyCode.filter { it.isDigit() }
                                         val cleanEmp = employeeCode.filter { it.isDigit() }
+                                        val cleanServer = fixedServerDigits.filter { it.isDigit() }.let {
+                                            if (it.length > 2) it.takeLast(2) else it.padStart(2, '0')
+                                        }.ifBlank { "01" }
 
                                         if (cleanComp.isBlank()) {
                                             errorMessage = "Please enter your 4-digit Company Code"
@@ -705,11 +710,11 @@ fun CustomerAuthScreen(
                                             return@Button
                                         }
                                         if (cleanEmp.isBlank()) {
-                                            errorMessage = "Please enter your Employee Code (e.g. 001)"
+                                            errorMessage = "Please enter your Employee Code (e.g. 0452)"
                                             return@Button
                                         }
-                                        if (cleanEmp.length > 6) {
-                                            errorMessage = "Employee Code cannot exceed 6 digits"
+                                        if (cleanEmp.length > 4) {
+                                            errorMessage = "Employee Code cannot exceed 4 digits"
                                             return@Button
                                         }
                                         if (name.trim().isBlank()) {
@@ -735,7 +740,8 @@ fun CustomerAuthScreen(
                                                 cleanEmp,
                                                 name.trim(),
                                                 designation.trim(),
-                                                location.trim()
+                                                location.trim(),
+                                                cleanServer
                                             )
                                         }
                                     },

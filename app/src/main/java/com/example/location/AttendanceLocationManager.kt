@@ -4,6 +4,10 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Address
 import android.location.Geocoder
 import android.location.Location
@@ -30,12 +34,27 @@ data class Coordinates(
     val addressName: String? = null,
     val provider: String? = null,
     val isCloudEmulator: Boolean = false,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val speedKmh: Float = 0f,
+    val bearing: Float = 0f,
+    val altitudeMeters: Double = 15.0,
+    val satellitesCount: Int = 11
 ) {
     fun formatCoordinates(): String {
         val latDir = if (latitude >= 0) "N" else "S"
         val lonDir = if (longitude >= 0) "E" else "W"
         return "${String.format(Locale.US, "%.5f", Math.abs(latitude))}° $latDir, ${String.format(Locale.US, "%.5f", Math.abs(longitude))}° $lonDir"
+    }
+
+    fun formatBearing(): String {
+        val deg = ((bearing % 360f + 360f) % 360f).toInt()
+        val directions = arrayOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
+        val index = (((deg + 11.25f) / 22.5f).toInt()) % 16
+        return "$deg° (${directions[index]})"
+    }
+
+    fun formatSpeed(): String {
+        return if (speedKmh <= 0.1f) "0 km/h" else "${String.format(Locale.US, "%.1f", speedKmh)} km/h"
     }
 }
 
@@ -47,6 +66,44 @@ class AttendanceLocationManager(private val context: Context) {
     private val systemLocationManager: LocationManager? =
         context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
 
+    private val sensorManager: SensorManager? =
+        context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+
+    @Volatile
+    private var lastKnownDeviceBearing: Float = 45f
+
+    init {
+        startOrientationTracking()
+    }
+
+    private fun startOrientationTracking() {
+        val sm = sensorManager ?: return
+        val rotationVector = sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        if (rotationVector != null) {
+            sm.registerListener(
+                object : SensorEventListener {
+                    override fun onSensorChanged(event: SensorEvent) {
+                        try {
+                            val rotationMatrix = FloatArray(9)
+                            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                            val orientation = FloatArray(3)
+                            SensorManager.getOrientation(rotationMatrix, orientation)
+                            val azimuthRad = orientation[0]
+                            var azimuthDeg = Math.toDegrees(azimuthRad.toDouble()).toFloat()
+                            if (azimuthDeg < 0) azimuthDeg += 360f
+                            lastKnownDeviceBearing = azimuthDeg
+                        } catch (_: Exception) {}
+                    }
+                    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+                },
+                rotationVector,
+                SensorManager.SENSOR_DELAY_NORMAL
+            )
+        }
+    }
+
+    fun getCurrentDeviceHeading(): Float = lastKnownDeviceBearing
+
     // Preset Pakistan Locations for instant selection or fallback
     val pakistanPresets = listOf(
         Coordinates(
@@ -55,7 +112,11 @@ class AttendanceLocationManager(private val context: Context) {
             isRealGps = true,
             accuracyMeters = 3.0f,
             addressName = "Karim Chamber Offices, Karachi, Pakistan",
-            provider = "Office Location (Pakistan)"
+            provider = "Office Location (Pakistan)",
+            speedKmh = 0f,
+            bearing = 45f,
+            altitudeMeters = 12.0,
+            satellitesCount = 11
         ),
         Coordinates(
             latitude = 24.8138,
@@ -63,7 +124,11 @@ class AttendanceLocationManager(private val context: Context) {
             isRealGps = true,
             accuracyMeters = 5.0f,
             addressName = "Clifton, Karachi, Pakistan",
-            provider = "Karachi Region"
+            provider = "Karachi Region",
+            speedKmh = 0f,
+            bearing = 180f,
+            altitudeMeters = 8.0,
+            satellitesCount = 12
         ),
         Coordinates(
             latitude = 31.5204,
@@ -71,7 +136,11 @@ class AttendanceLocationManager(private val context: Context) {
             isRealGps = true,
             accuracyMeters = 5.0f,
             addressName = "Lahore, Punjab, Pakistan",
-            provider = "Lahore Region"
+            provider = "Lahore Region",
+            speedKmh = 0f,
+            bearing = 315f,
+            altitudeMeters = 217.0,
+            satellitesCount = 10
         ),
         Coordinates(
             latitude = 33.6844,
@@ -79,7 +148,11 @@ class AttendanceLocationManager(private val context: Context) {
             isRealGps = true,
             accuracyMeters = 5.0f,
             addressName = "Islamabad, Pakistan",
-            provider = "Capital Region"
+            provider = "Capital Region",
+            speedKmh = 0f,
+            bearing = 25f,
+            altitudeMeters = 540.0,
+            satellitesCount = 14
         )
     )
 
@@ -218,6 +291,17 @@ class AttendanceLocationManager(private val context: Context) {
     private suspend fun buildCoordinatesFromLocation(location: Location, source: String): Coordinates {
         val isEmulator = isCloudEmulatorLocation(location.latitude, location.longitude)
         val resolvedAddress = reverseGeocode(location.latitude, location.longitude)
+        val speedKmh = if (location.hasSpeed()) (location.speed * 3.6f) else 0f
+        val bearingDeg = if (location.hasBearing() && location.bearing > 0f) {
+            location.bearing
+        } else {
+            getCurrentDeviceHeading()
+        }
+        val altM = if (location.hasAltitude()) location.altitude else 15.0
+        val sats = if (location.extras?.containsKey("satellites") == true) {
+            location.extras?.getInt("satellites")?.coerceIn(4, 15) ?: 11
+        } else 11
+
         return Coordinates(
             latitude = location.latitude,
             longitude = location.longitude,
@@ -226,7 +310,11 @@ class AttendanceLocationManager(private val context: Context) {
             addressName = resolvedAddress,
             provider = if (isEmulator) "Cloud Virtual GPS (US Datacenter)" else source,
             isCloudEmulator = isEmulator,
-            timestamp = location.time.takeIf { it > 0 } ?: System.currentTimeMillis()
+            timestamp = location.time.takeIf { it > 0 } ?: System.currentTimeMillis(),
+            speedKmh = speedKmh,
+            bearing = bearingDeg,
+            altitudeMeters = altM,
+            satellitesCount = sats
         )
     }
 

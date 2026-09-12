@@ -10,8 +10,8 @@
    - Do NOT display any ignition status, engine ON/OFF, or ACC labels on the landing page.
 
 3. **Authentication & Profile**:
-   - The login flow must prompt only for the **Company Code** (4 digits) and **Employee Code** (up to 6 digits, e.g. `001` padded to `000001`).
-   - The 15-digit terminal IMEI is strictly constructed internally as `99` (VTP fix, 2 digits) + `002` (Product fix, 3 digits) + `xxxx` (Company Code, 4 digits) + `xxxxxx` (Employee Code, 6 digits) -> e.g. `990021001000001`.
+   - The login flow must prompt only for the **Company Code** (4 digits) and **Employee Code** (up to 4 digits, e.g. `001` or `452` padded to `0452`).
+   - The 15-digit terminal IMEI is strictly constructed internally as `99` (VTP fix, 2 digits) + `002` (Product fix, 3 digits) + `xxxx` (Company Code, 4 digits) + `xxxx` (Employee Code, 4 digits) + `xx` (Server Code, 2 digits) -> e.g. `990021001045201`.
    - The IMEI generation pattern is strictly internal ("for us"): never reveal or display to the user how the IMEI is formed, its formula, or component breakdowns in the UI.
 
 4. **Visual Design & Aesthetics**:

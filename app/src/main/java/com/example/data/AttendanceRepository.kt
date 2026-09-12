@@ -24,15 +24,17 @@ class AttendanceRepository(private val context: Context) {
     // Determine initial 15-digit IMEI following the internal 99002 pattern
     private val savedCompanyCode = prefs.getString("emp_company_code", "") ?: ""
     private val savedEmployeeCode = prefs.getString("emp_code", "") ?: ""
+    private val savedServerDigits = prefs.getString("server_digits", "01") ?: "01"
     private val initialDeviceImei = run {
         val comp = savedCompanyCode.ifBlank { "1001" }
-        val emp = savedEmployeeCode.ifBlank { "000452" }
+        val emp = savedEmployeeCode.ifBlank { "0452" }
+        val srv = savedServerDigits.ifBlank { "01" }
+        val newlyBuilt = DeviceInfoManager.buildVtpImei(comp, emp, srv, context)
         val raw = prefs.getString("imei", null)
-        if (raw != null && raw.startsWith("99002") && raw.length == 15) {
+        if (raw != null && raw.startsWith("99002") && raw.length == 15 && raw == newlyBuilt) {
             raw
         } else {
-            val newlyBuilt = DeviceInfoManager.buildVtpImei(comp, emp, context)
-            prefs.edit().putString("imei", newlyBuilt).putString("emp_imei", newlyBuilt).apply()
+            prefs.edit().putString("imei", newlyBuilt).putString("emp_imei", newlyBuilt).putString("server_digits", srv).apply()
             newlyBuilt
         }
     }
@@ -44,6 +46,7 @@ class AttendanceRepository(private val context: Context) {
             val rawDesig = prefs.getString("emp_desig", "") ?: ""
             val rawLoc = prefs.getString("emp_loc", "") ?: ""
             val rawImei = prefs.getString("emp_imei", initialDeviceImei) ?: initialDeviceImei
+            val rawServer = prefs.getString("server_digits", savedServerDigits) ?: savedServerDigits
 
             // Purge template placeholder values if they were saved in previous sessions
             val cleanName = if (rawName == "Saad Ali Hafiz") "" else rawName
@@ -58,7 +61,8 @@ class AttendanceRepository(private val context: Context) {
                 location = cleanLoc,
                 imei = rawImei,
                 companyCode = savedCompanyCode,
-                employeeCode = savedEmployeeCode
+                employeeCode = savedEmployeeCode,
+                serverDigits = rawServer
             )
         }
     )
@@ -70,7 +74,8 @@ class AttendanceRepository(private val context: Context) {
             tcpHost = prefs.getString("tcp_host", "avl.vtps.org") ?: "avl.vtps.org",
             tcpPort = prefs.getInt("tcp_port", 5200),
             imei = initialDeviceImei,
-            useWebSocket = prefs.getBoolean("use_ws", true)
+            useWebSocket = prefs.getBoolean("use_ws", true),
+            serverDigits = savedServerDigits
         )
     )
     val socketConfig = _socketConfig.asStateFlow()
@@ -119,6 +124,8 @@ class AttendanceRepository(private val context: Context) {
         val empId = prefs.getString("${prefix}_empId", "") ?: employeeCode
         val empName = prefs.getString("${prefix}_empName", "") ?: ""
         val imei = prefs.getString("${prefix}_imei", "") ?: ""
+        val speed = prefs.getFloat("${prefix}_speed", 0f)
+        val angle = prefs.getFloat("${prefix}_angle", 0f)
 
         return AttendanceRecord(
             type = type,
@@ -130,7 +137,9 @@ class AttendanceRepository(private val context: Context) {
             employeeName = empName,
             locationName = loc,
             imei = imei,
-            status = "Marked"
+            status = "Marked",
+            speedKmh = speed,
+            courseAngle = angle
         )
     }
 
@@ -145,7 +154,9 @@ class AttendanceRepository(private val context: Context) {
         lon: Double,
         txHex: String?,
         rxHex: String?,
-        locationNameOverride: String? = null
+        locationNameOverride: String? = null,
+        speedKmh: Float = 0f,
+        courseAngle: Float = 0f
     ): AttendanceRecord {
         val now = System.currentTimeMillis()
         val formattedDate = dateFormat.format(Date(now))
@@ -165,6 +176,8 @@ class AttendanceRepository(private val context: Context) {
             putString("${scopedPrefix}_comp", profile.companyCode)
             putString("${scopedPrefix}_empName", profile.name)
             putString("${scopedPrefix}_imei", config.imei)
+            putFloat("${scopedPrefix}_speed", speedKmh)
+            putFloat("${scopedPrefix}_angle", courseAngle)
             apply()
         }
 
@@ -180,7 +193,9 @@ class AttendanceRepository(private val context: Context) {
             imei = config.imei,
             status = "Success",
             txHex = txHex,
-            rxHex = rxHex
+            rxHex = rxHex,
+            speedKmh = speedKmh,
+            courseAngle = courseAngle
         )
 
         if (type == AttendanceType.TIME_IN) {
@@ -232,15 +247,20 @@ class AttendanceRepository(private val context: Context) {
         employeeCode: String,
         name: String = "",
         designation: String = "",
-        location: String = ""
+        location: String = "",
+        serverDigits: String = "01"
     ) {
         val cleanComp = companyCode.filter { it.isDigit() }.let {
             if (it.length > 4) it.takeLast(4) else it.padStart(4, '0')
         }
         val cleanEmp = employeeCode.filter { it.isDigit() }.let {
-            if (it.length > 6) it.takeLast(6) else it.padStart(6, '0')
+            if (it.length > 4) it.takeLast(4) else it.padStart(4, '0')
         }
-        val newImei = DeviceInfoManager.buildVtpImei(cleanComp, cleanEmp, context)
+        val cleanServer = serverDigits.filter { it.isDigit() }.let {
+            if (it.length > 2) it.takeLast(2) else it.padStart(2, '0')
+        }.ifBlank { "01" }
+
+        val newImei = DeviceInfoManager.buildVtpImei(cleanComp, cleanEmp, cleanServer, context)
 
         val current = _employeeProfile.value
         val isDifferentUser = (current.companyCode != cleanComp || current.employeeCode != cleanEmp)
@@ -276,10 +296,14 @@ class AttendanceRepository(private val context: Context) {
             name = effectiveName,
             designation = effectiveDesig,
             location = effectiveLoc,
-            imei = newImei
+            imei = newImei,
+            serverDigits = cleanServer
         )
         _employeeProfile.value = updated
-        _socketConfig.value = _socketConfig.value.copy(imei = newImei)
+        _socketConfig.value = _socketConfig.value.copy(
+            imei = newImei,
+            serverDigits = cleanServer
+        )
 
         prefs.edit().apply {
             putString("emp_company_code", cleanComp)
@@ -290,6 +314,7 @@ class AttendanceRepository(private val context: Context) {
             putString("emp_loc", effectiveLoc)
             putString("emp_imei", newImei)
             putString("imei", newImei)
+            putString("server_digits", cleanServer)
             putBoolean("profile_fixed", true)
             apply()
         }
@@ -300,8 +325,8 @@ class AttendanceRepository(private val context: Context) {
         _lastTimeOut.value = loadSavedRecord(AttendanceType.TIME_OUT, cleanComp, cleanEmp)
     }
 
-    fun loginWithCodes(companyCode: String, employeeCode: String) {
-        loginWithDetails(companyCode, employeeCode)
+    fun loginWithCodes(companyCode: String, employeeCode: String, serverDigits: String = "01") {
+        loginWithDetails(companyCode, employeeCode, serverDigits = serverDigits)
     }
 
     fun isProfileFixed(): Boolean {
@@ -313,10 +338,17 @@ class AttendanceRepository(private val context: Context) {
         val current = _employeeProfile.value
         val sanitizedImei = if (profile.imei.isNotBlank()) DeviceInfoManager.sanitizeImei(profile.imei) else _socketConfig.value.imei
         val updatedProfile = if (isFixed) {
-            // Profile details cannot be changed from settings once fixed
-            current.copy(imei = sanitizedImei)
+            // Profile details (name, designation, codes) cannot be changed from settings once fixed,
+            // but serverDigits and imei can be updated through settings if needed
+            current.copy(
+                imei = sanitizedImei,
+                serverDigits = profile.serverDigits
+            )
         } else {
-            profile.copy(imei = sanitizedImei)
+            profile.copy(
+                imei = sanitizedImei,
+                serverDigits = profile.serverDigits
+            )
         }
         _employeeProfile.value = updatedProfile
         prefs.edit().apply {
@@ -326,6 +358,7 @@ class AttendanceRepository(private val context: Context) {
             putString("emp_loc", updatedProfile.location)
             putString("emp_imei", updatedProfile.imei)
             putString("imei", updatedProfile.imei)
+            putString("server_digits", updatedProfile.serverDigits)
             apply()
         }
         if (_socketConfig.value.imei != sanitizedImei) {
@@ -344,10 +377,14 @@ class AttendanceRepository(private val context: Context) {
             putString("imei", updatedConfig.imei)
             putString("emp_imei", updatedConfig.imei)
             putBoolean("use_ws", updatedConfig.useWebSocket)
+            putString("server_digits", updatedConfig.serverDigits)
             apply()
         }
-        if (_employeeProfile.value.imei != sanitizedImei) {
-            _employeeProfile.value = _employeeProfile.value.copy(imei = sanitizedImei)
+        if (_employeeProfile.value.imei != sanitizedImei || _employeeProfile.value.serverDigits != updatedConfig.serverDigits) {
+            _employeeProfile.value = _employeeProfile.value.copy(
+                imei = sanitizedImei,
+                serverDigits = updatedConfig.serverDigits
+            )
         }
     }
 }
