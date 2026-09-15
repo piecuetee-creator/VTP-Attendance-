@@ -18,8 +18,27 @@ class AttendanceRepository(private val context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("presence_prefs", Context.MODE_PRIVATE)
 
-    private val dateFormat = SimpleDateFormat("dd-MMM-yyyy hh:mm a", Locale.getDefault())
-    private val dayKeyFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+    fun getEffectiveTimeZone(): java.util.TimeZone {
+        val offset = _socketConfig.value.timezoneOffsetHours
+        return if (offset == 0) {
+            java.util.TimeZone.getTimeZone("UTC")
+        } else {
+            val sign = if (offset >= 0) "+" else "-"
+            java.util.TimeZone.getTimeZone(String.format(java.util.Locale.US, "GMT%s%02d:00", sign, Math.abs(offset)))
+        }
+    }
+
+    private fun getDateFormat(): SimpleDateFormat {
+        return SimpleDateFormat("dd-MMM-yyyy hh:mm a", Locale.getDefault()).apply {
+            timeZone = getEffectiveTimeZone()
+        }
+    }
+
+    private fun getDayKeyFormat(): SimpleDateFormat {
+        return SimpleDateFormat("yyyyMMdd", Locale.getDefault()).apply {
+            timeZone = getEffectiveTimeZone()
+        }
+    }
 
     // Determine initial 15-digit IMEI following the internal 99002 pattern
     private val savedCompanyCode = prefs.getString("emp_company_code", "") ?: ""
@@ -75,7 +94,8 @@ class AttendanceRepository(private val context: Context) {
             tcpPort = prefs.getInt("tcp_port", 5200),
             imei = initialDeviceImei,
             useWebSocket = prefs.getBoolean("use_ws", true),
-            serverDigits = savedServerDigits
+            serverDigits = savedServerDigits,
+            timezoneOffsetHours = prefs.getInt("tz_offset_hours", 5)
         )
     )
     val socketConfig = _socketConfig.asStateFlow()
@@ -96,7 +116,7 @@ class AttendanceRepository(private val context: Context) {
         employeeCode: String = _employeeProfile.value.employeeCode
     ): AttendanceRecord? {
         if (employeeCode.isBlank()) return null
-        val today = dayKeyFormat.format(Date())
+        val today = getDayKeyFormat().format(Date())
         val scopedPrefix = "${type.name}_${today}_${companyCode}_${employeeCode}"
 
         val prefix = if (prefs.contains("${scopedPrefix}_time")) {
@@ -159,10 +179,10 @@ class AttendanceRepository(private val context: Context) {
         courseAngle: Float = 0f
     ): AttendanceRecord {
         val now = System.currentTimeMillis()
-        val formattedDate = dateFormat.format(Date(now))
+        val formattedDate = getDateFormat().format(Date(now))
         val profile = _employeeProfile.value
         val config = _socketConfig.value
-        val today = dayKeyFormat.format(Date(now))
+        val today = getDayKeyFormat().format(Date(now))
         val scopedPrefix = "${type.name}_${today}_${profile.companyCode}_${profile.employeeCode}"
         val effectiveLocation = locationNameOverride?.takeIf { it.isNotBlank() } ?: profile.location
 
@@ -221,7 +241,7 @@ class AttendanceRepository(private val context: Context) {
         companyCode: String = _employeeProfile.value.companyCode,
         employeeCode: String = _employeeProfile.value.employeeCode
     ) {
-        val today = dayKeyFormat.format(Date())
+        val today = getDayKeyFormat().format(Date())
         val inPrefix = "${AttendanceType.TIME_IN.name}_${today}_${companyCode}_${employeeCode}"
         val outPrefix = "${AttendanceType.TIME_OUT.name}_${today}_${companyCode}_${employeeCode}"
         val legacyIn = "${AttendanceType.TIME_IN.name}_$today"
@@ -378,6 +398,7 @@ class AttendanceRepository(private val context: Context) {
             putString("emp_imei", updatedConfig.imei)
             putBoolean("use_ws", updatedConfig.useWebSocket)
             putString("server_digits", updatedConfig.serverDigits)
+            putInt("tz_offset_hours", updatedConfig.timezoneOffsetHours)
             apply()
         }
         if (_employeeProfile.value.imei != sanitizedImei || _employeeProfile.value.serverDigits != updatedConfig.serverDigits) {

@@ -26,6 +26,8 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.Wifi
@@ -169,6 +171,7 @@ fun SettingsContent(
     var tcpHost by remember { mutableStateOf(config.tcpHost) }
     var tcpPort by remember { mutableStateOf(config.tcpPort.toString()) }
     var useWs by remember { mutableStateOf(config.useWebSocket) }
+    var timezoneOffsetHours by remember { mutableStateOf(config.timezoneOffsetHours) }
 
     var saveConfirmation by remember { mutableStateOf(false) }
 
@@ -328,6 +331,178 @@ fun SettingsContent(
                         )
                     }
                 )
+            }
+        }
+
+        // Section: GT06 Device Timezone Setting (+5 for Karachi / Pakistan)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = VtpOrange,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "DEVICE TIMEZONE (GT06 PROTOCOL)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = VtpOrange,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Text(
+                    text = "Controls the timestamp offset encoded in GT06 packets sent to the attendance server. Set to +5 for Karachi / Pakistan Standard Time.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Quick Selection Presets
+                val tzPresets = listOf(
+                    Triple(5, "Karachi (PKT)", "+5 UTC"),
+                    Triple(0, "UTC / GMT", "+0 UTC"),
+                    Triple(4, "Dubai (GST)", "+4 UTC"),
+                    Triple(3, "Riyadh (AST)", "+3 UTC")
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    tzPresets.forEach { (offset, label, badge) ->
+                        val isSelected = timezoneOffsetHours == offset
+                        Surface(
+                            onClick = { timezoneOffsetHours = offset },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) VtpOrange.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.5.dp,
+                                if (isSelected) VtpOrange else Color.Transparent
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = badge,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) VtpOrange else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = label.substringBefore(" "),
+                                    fontSize = 10.sp,
+                                    color = if (isSelected) VtpOrangeDark else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Custom Offset Input & Stepper
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedTextField(
+                        value = if (timezoneOffsetHours > 0) "+$timezoneOffsetHours" else "$timezoneOffsetHours",
+                        onValueChange = { input ->
+                            val clean = input.filter { it.isDigit() || it == '-' || it == '+' }
+                            clean.toIntOrNull()?.let {
+                                if (it in -12..14) {
+                                    timezoneOffsetHours = it
+                                }
+                            }
+                        },
+                        label = { Text("Timezone Offset (Hours)") },
+                        leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = VtpOrange) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("timezone_offset_input"),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = vtpTextFieldColors()
+                    )
+
+                    // Quick +/- buttons
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = { if (timezoneOffsetHours > -12) timezoneOffsetHours-- },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            modifier = Modifier.height(52.dp)
+                        ) {
+                            Text("-1h", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = { if (timezoneOffsetHours < 14) timezoneOffsetHours++ },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            modifier = Modifier.height(52.dp)
+                        ) {
+                            Text("+1h", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+                }
+
+                // Status info badge
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (timezoneOffsetHours == 5) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = if (timezoneOffsetHours == 5) Color(0xFF2E7D32) else VtpOrange,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (timezoneOffsetHours == 5) {
+                                "Configured: UTC+05:00 (Karachi / Pakistan Standard Time)"
+                            } else {
+                                "Configured: UTC${if (timezoneOffsetHours >= 0) "+$timezoneOffsetHours" else "$timezoneOffsetHours"}:00"
+                            },
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (timezoneOffsetHours == 5) Color(0xFF1B5E20) else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
             }
         }
 
@@ -548,7 +723,8 @@ fun SettingsContent(
                             tcpHost = tcpHost.trim(),
                             tcpPort = port,
                             useWebSocket = useWs,
-                            serverDigits = cleanServer
+                            serverDigits = cleanServer,
+                            timezoneOffsetHours = timezoneOffsetHours
                         )
                     )
                     // Profile credentials (name, desig, loc, codes) remain locked as entered at login,

@@ -37,7 +37,8 @@ data class SocketConfig(
     val tcpPort: Int = 5200,
     val imei: String = "990021001045201",
     val useWebSocket: Boolean = true,
-    val serverDigits: String = "01"
+    val serverDigits: String = "01",
+    val timezoneOffsetHours: Int = 5 // Default UTC+5 for Karachi / Pakistan Standard Time
 )
 
 data class AttendanceRecord(

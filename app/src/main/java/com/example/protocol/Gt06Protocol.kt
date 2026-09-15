@@ -129,6 +129,7 @@ object Gt06Protocol {
      * @param courseAngle Direction heading in degrees (0.0 to 360.0)
      * @param satellitesCount Visible GPS satellite count
      * @param altitudeMeters Altitude in meters
+     * @param timezoneOffsetHours Timezone offset in hours (default: 5 for Karachi / Pakistan Standard Time)
      */
     fun buildLocationPacket(
         lat: Double,
@@ -139,7 +140,8 @@ object Gt06Protocol {
         speedKmh: Float = 0f,
         courseAngle: Float = 0f,
         satellitesCount: Int = 11,
-        altitudeMeters: Double = 0.0
+        altitudeMeters: Double = 0.0,
+        timezoneOffsetHours: Int = 5
     ): ByteArray {
         val totalLength = 36 // 2 start + 1 len + 1 proto + 6 time + 1 gps + 4 lat + 4 lon + 1 spd + 2 course + 8 lbs + 2 serial + 2 crc + 2 stop
         val packet = ByteArray(36)
@@ -154,8 +156,14 @@ object Gt06Protocol {
         // Protocol number: 0x12 (GPS Location)
         packet[3] = 0x12.toByte()
 
-        // Date Time: 6 bytes (YY MM DD HH mm ss in UTC)
-        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        // Date Time: 6 bytes (YY MM DD HH mm ss in specified TimeZone)
+        val tz = if (timezoneOffsetHours == 0) {
+            TimeZone.getTimeZone("UTC")
+        } else {
+            val sign = if (timezoneOffsetHours >= 0) "+" else "-"
+            TimeZone.getTimeZone(String.format(java.util.Locale.US, "GMT%s%02d:00", sign, Math.abs(timezoneOffsetHours)))
+        }
+        val cal = Calendar.getInstance(tz)
         cal.timeInMillis = timestampMs
         packet[4] = ((cal.get(Calendar.YEAR) % 100) and 0xFF).toByte()
         packet[5] = ((cal.get(Calendar.MONTH) + 1) and 0xFF).toByte()
@@ -242,7 +250,7 @@ object Gt06Protocol {
         val utcTime: String
     )
 
-    fun parseLocationPacket(packet: ByteArray): ParsedLocation? {
+    fun parseLocationPacket(packet: ByteArray, timezoneOffsetHours: Int = 5): ParsedLocation? {
         if (packet.size < 36 || packet[3] != 0x12.toByte()) return null
         return try {
             val year = 2000 + (packet[4].toInt() and 0xFF)
@@ -251,7 +259,12 @@ object Gt06Protocol {
             val hour = packet[7].toInt() and 0xFF
             val min = packet[8].toInt() and 0xFF
             val sec = packet[9].toInt() and 0xFF
-            val utcStr = String.format(java.util.Locale.US, "%04d-%02d-%02d %02d:%02d:%02d UTC", year, month, day, hour, min, sec)
+            val tzLabel = when (timezoneOffsetHours) {
+                5 -> "PKT (UTC+5)"
+                0 -> "UTC"
+                else -> if (timezoneOffsetHours >= 0) "UTC+$timezoneOffsetHours" else "UTC$timezoneOffsetHours"
+            }
+            val timeStr = String.format(java.util.Locale.US, "%04d-%02d-%02d %02d:%02d:%02d (%s)", year, month, day, hour, min, sec, tzLabel)
 
             val sats = packet[10].toInt() and 0x0F
 
@@ -293,7 +306,7 @@ object Gt06Protocol {
                 isNorth = isNorth,
                 isEast = !isWest,
                 serialNo = serial,
-                utcTime = utcStr
+                utcTime = timeStr
             )
         } catch (_: Exception) {
             null

@@ -61,19 +61,52 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun buildLocationPacket_karachiTimezoneOffsetMatchesPlus5() {
+        // Fixed timestamp: 2026-09-14 12:00:00 UTC (1789387200000 ms)
+        val calUtc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+            set(2026, java.util.Calendar.SEPTEMBER, 14, 12, 0, 0)
+        }
+        val timestamp = calUtc.timeInMillis
+
+        // Build with default UTC+5 (Karachi)
+        val packetKarachi = Gt06Protocol.buildLocationPacket(
+            lat = 24.8607,
+            lon = 67.0011,
+            isIgnitionOn = true,
+            serialNo = 1,
+            timestampMs = timestamp,
+            timezoneOffsetHours = 5
+        )
+        val hourKarachi = packetKarachi[7].toInt() and 0xFF
+        assertEquals(17, hourKarachi) // 12 + 5 = 17:00 (Karachi time)
+
+        // Build with UTC (0 offset)
+        val packetUtc = Gt06Protocol.buildLocationPacket(
+            lat = 24.8607,
+            lon = 67.0011,
+            isIgnitionOn = true,
+            serialNo = 1,
+            timestampMs = timestamp,
+            timezoneOffsetHours = 0
+        )
+        val hourUtc = packetUtc[7].toInt() and 0xFF
+        assertEquals(12, hourUtc) // 12:00 (UTC time)
+    }
+
+    @Test
     fun buildVtpImei_patternMatchesSpecification() {
-        // 99 (VTP) + 002 (Product) + 1001 (Company) + 000001 (Employee 001 padded to 6)
+        // 99 (VTP, 2) + 002 (Product, 3) + 1001 (Company, 4) + 0001 (Employee 001, 4) + 01 (Server, 2) = 15 digits
         val imei1 = com.example.util.DeviceInfoManager.buildVtpImei("1001", "001")
         assertEquals(15, imei1.length)
-        assertEquals("990021001000001", imei1)
+        assertEquals("990021001000101", imei1)
 
         val imei2 = com.example.util.DeviceInfoManager.buildVtpImei("1001", "452")
         assertEquals(15, imei2.length)
-        assertEquals("990021001000452", imei2)
+        assertEquals("990021001045201", imei2)
 
-        val imei3 = com.example.util.DeviceInfoManager.buildVtpImei("1001", "123456")
+        val imei3 = com.example.util.DeviceInfoManager.buildVtpImei("1001", "1234", "02")
         assertEquals(15, imei3.length)
-        assertEquals("990021001123456", imei3)
+        assertEquals("990021001123402", imei3)
     }
 }
 

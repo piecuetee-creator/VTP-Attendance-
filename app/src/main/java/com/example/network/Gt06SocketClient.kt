@@ -208,18 +208,20 @@ class Gt06SocketClient {
                 speedKmh = speedKmh,
                 courseAngle = courseAngle,
                 satellitesCount = satellitesCount,
-                altitudeMeters = altitudeMeters
+                altitudeMeters = altitudeMeters,
+                timezoneOffsetHours = config.timezoneOffsetHours
             )
             val locHex = Gt06Protocol.bytesToHex(locationPacket)
-            val parsed = Gt06Protocol.parseLocationPacket(locationPacket)
+            val parsed = Gt06Protocol.parseLocationPacket(locationPacket, config.timezoneOffsetHours)
             val spdDisplay = parsed?.let { "${it.speedKmh} km/h" } ?: "${speedKmh.toInt()} km/h"
             val angDisplay = parsed?.let { "${it.courseAngle}° (${it.cardinalDirection})" } ?: "${courseAngle.toInt()}°"
             val satsDisplay = "${parsed?.satellites ?: satellitesCount} Sats"
+            val timeDisplay = parsed?.utcTime ?: "UTC+${config.timezoneOffsetHours}"
 
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
                 LogDirection.TX,
-                "TX GT06 Location Packet (0x12) | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
+                "TX GT06 Location (0x12) | Time: $timeDisplay | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
                 locHex
             )
 
@@ -306,18 +308,20 @@ class Gt06SocketClient {
                 speedKmh = speedKmh,
                 courseAngle = courseAngle,
                 satellitesCount = satellitesCount,
-                altitudeMeters = altitudeMeters
+                altitudeMeters = altitudeMeters,
+                timezoneOffsetHours = config.timezoneOffsetHours
             )
             val locHex = Gt06Protocol.bytesToHex(locationPacket)
-            val parsed = Gt06Protocol.parseLocationPacket(locationPacket)
+            val parsed = Gt06Protocol.parseLocationPacket(locationPacket, config.timezoneOffsetHours)
             val spdDisplay = parsed?.let { "${it.speedKmh} km/h" } ?: "${speedKmh.toInt()} km/h"
             val angDisplay = parsed?.let { "${it.courseAngle}° (${it.cardinalDirection})" } ?: "${courseAngle.toInt()}°"
             val satsDisplay = "${parsed?.satellites ?: satellitesCount} Sats"
+            val timeDisplay = parsed?.utcTime ?: "UTC+${config.timezoneOffsetHours}"
 
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
                 LogDirection.TX,
-                "TX GT06 Location Packet (0x12) | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
+                "TX GT06 Location (0x12) | Time: $timeDisplay | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
                 locHex
             )
 
