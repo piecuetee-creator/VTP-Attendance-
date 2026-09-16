@@ -91,26 +91,26 @@ class Gt06SocketClient {
         speedKmh: Float = 0f,
         courseAngle: Float = 0f,
         satellitesCount: Int = 11,
-        altitudeMeters: Double = 15.0
+        altitudeMeters: Double = 15.0,
+        timestampMs: Long = System.currentTimeMillis()
     ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         val actionName = if (isTimeIn) "Time In" else "Time Out"
         val directions = arrayOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
         val deg = ((courseAngle % 360f + 360f) % 360f).toInt()
         val cardIdx = (((deg + 11.25f) / 22.5f).toInt()) % 16
         val cardinal = directions[cardIdx]
-        val angleStr = "$deg° ($cardinal)"
         val speedStr = if (speedKmh <= 0.1f) "0 km/h" else "${String.format(java.util.Locale.US, "%.1f", speedKmh)} km/h"
 
         addLog(LogDirection.INFO, "Initiating GT06 transmission for $actionName...")
         addLog(
             LogDirection.INFO,
-            "Packet Telemetry -> Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} | Speed: $speedStr | Angle: $angleStr | Sats: $satellitesCount | Alt: ${altitudeMeters.toInt()}m | IMEI: ${config.imei}"
+            "Packet Telemetry -> Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} | Speed: $speedStr | Angle: $deg° ($cardinal) | Sats: $satellitesCount | Alt: ${altitudeMeters.toInt()}m | IMEI: ${config.imei}"
         )
 
         if (config.useWebSocket) {
-            sendViaWebSocket(config, lat, lon, isTimeIn, speedKmh, courseAngle, satellitesCount, altitudeMeters)
+            sendViaWebSocket(config, lat, lon, isTimeIn, speedKmh, courseAngle, satellitesCount, altitudeMeters, timestampMs)
         } else {
-            sendViaRawTcp(config, lat, lon, isTimeIn, speedKmh, courseAngle, satellitesCount, altitudeMeters)
+            sendViaRawTcp(config, lat, lon, isTimeIn, speedKmh, courseAngle, satellitesCount, altitudeMeters, timestampMs)
         }
     }
 
@@ -122,7 +122,8 @@ class Gt06SocketClient {
         speedKmh: Float = 0f,
         courseAngle: Float = 0f,
         satellitesCount: Int = 11,
-        altitudeMeters: Double = 15.0
+        altitudeMeters: Double = 15.0,
+        timestampMs: Long = System.currentTimeMillis()
     ): Pair<Boolean, String> {
         _connectionStatus.value = ConnectionStatus.CONNECTING
         addLog(LogDirection.INFO, "Connecting to WebSocket: ${config.wsUrl}...")
@@ -205,18 +206,20 @@ class Gt06SocketClient {
                 lon = lon,
                 isIgnitionOn = isTimeIn,
                 serialNo = serialLoc,
+                timestampMs = timestampMs,
                 speedKmh = speedKmh,
                 courseAngle = courseAngle,
                 satellitesCount = satellitesCount,
                 altitudeMeters = altitudeMeters,
-                timezoneOffsetHours = config.timezoneOffsetHours
+                timezoneOffsetHours = config.timezoneOffsetHours,
+                useDeviceTime = config.useDeviceTime
             )
             val locHex = Gt06Protocol.bytesToHex(locationPacket)
-            val parsed = Gt06Protocol.parseLocationPacket(locationPacket, config.timezoneOffsetHours)
+            val parsed = Gt06Protocol.parseLocationPacket(locationPacket, config.timezoneOffsetHours, config.useDeviceTime)
             val spdDisplay = parsed?.let { "${it.speedKmh} km/h" } ?: "${speedKmh.toInt()} km/h"
             val angDisplay = parsed?.let { "${it.courseAngle}° (${it.cardinalDirection})" } ?: "${courseAngle.toInt()}°"
             val satsDisplay = "${parsed?.satellites ?: satellitesCount} Sats"
-            val timeDisplay = parsed?.utcTime ?: "UTC+${config.timezoneOffsetHours}"
+            val timeDisplay = parsed?.utcTime ?: if (config.useDeviceTime) "Device Time" else "UTC+${config.timezoneOffsetHours}"
 
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
@@ -250,7 +253,8 @@ class Gt06SocketClient {
         speedKmh: Float = 0f,
         courseAngle: Float = 0f,
         satellitesCount: Int = 11,
-        altitudeMeters: Double = 15.0
+        altitudeMeters: Double = 15.0,
+        timestampMs: Long = System.currentTimeMillis()
     ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         var socket: Socket? = null
         try {
@@ -305,18 +309,20 @@ class Gt06SocketClient {
                 lon = lon,
                 isIgnitionOn = isTimeIn,
                 serialNo = serialLoc,
+                timestampMs = timestampMs,
                 speedKmh = speedKmh,
                 courseAngle = courseAngle,
                 satellitesCount = satellitesCount,
                 altitudeMeters = altitudeMeters,
-                timezoneOffsetHours = config.timezoneOffsetHours
+                timezoneOffsetHours = config.timezoneOffsetHours,
+                useDeviceTime = config.useDeviceTime
             )
             val locHex = Gt06Protocol.bytesToHex(locationPacket)
-            val parsed = Gt06Protocol.parseLocationPacket(locationPacket, config.timezoneOffsetHours)
+            val parsed = Gt06Protocol.parseLocationPacket(locationPacket, config.timezoneOffsetHours, config.useDeviceTime)
             val spdDisplay = parsed?.let { "${it.speedKmh} km/h" } ?: "${speedKmh.toInt()} km/h"
             val angDisplay = parsed?.let { "${it.courseAngle}° (${it.cardinalDirection})" } ?: "${courseAngle.toInt()}°"
             val satsDisplay = "${parsed?.satellites ?: satellitesCount} Sats"
-            val timeDisplay = parsed?.utcTime ?: "UTC+${config.timezoneOffsetHours}"
+            val timeDisplay = parsed?.utcTime ?: if (config.useDeviceTime) "Device Time" else "UTC+${config.timezoneOffsetHours}"
 
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(

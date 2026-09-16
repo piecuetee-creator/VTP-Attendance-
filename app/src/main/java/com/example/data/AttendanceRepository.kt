@@ -2,13 +2,19 @@ package com.example.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.data.local.AttendanceDatabaseHelper
+import com.example.data.local.AttendanceRecordEntity
 import com.example.model.AttendanceRecord
 import com.example.model.AttendanceType
 import com.example.model.EmployeeProfile
 import com.example.model.SocketConfig
 import com.example.util.DeviceInfoManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -18,7 +24,13 @@ class AttendanceRepository(private val context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("presence_prefs", Context.MODE_PRIVATE)
 
+    private val dbHelper = AttendanceDatabaseHelper.getInstance(context)
+    val unsyncedCount: Flow<Int> = dbHelper.unsyncedCountFlow
+
     fun getEffectiveTimeZone(): java.util.TimeZone {
+        if (_socketConfig.value.useDeviceTime) {
+            return java.util.TimeZone.getDefault()
+        }
         val offset = _socketConfig.value.timezoneOffsetHours
         return if (offset == 0) {
             java.util.TimeZone.getTimeZone("UTC")
@@ -95,7 +107,8 @@ class AttendanceRepository(private val context: Context) {
             imei = initialDeviceImei,
             useWebSocket = prefs.getBoolean("use_ws", true),
             serverDigits = savedServerDigits,
-            timezoneOffsetHours = prefs.getInt("tz_offset_hours", 5)
+            timezoneOffsetHours = prefs.getInt("tz_offset_hours", 5),
+            useDeviceTime = prefs.getBoolean("use_device_time", true)
         )
     )
     val socketConfig = _socketConfig.asStateFlow()
@@ -176,9 +189,13 @@ class AttendanceRepository(private val context: Context) {
         rxHex: String?,
         locationNameOverride: String? = null,
         speedKmh: Float = 0f,
-        courseAngle: Float = 0f
+        courseAngle: Float = 0f,
+        satellitesCount: Int = 11,
+        altitudeMeters: Double = 15.0,
+        isSynced: Boolean = true,
+        timestampOverride: Long? = null
     ): AttendanceRecord {
-        val now = System.currentTimeMillis()
+        val now = timestampOverride ?: System.currentTimeMillis()
         val formattedDate = getDateFormat().format(Date(now))
         val profile = _employeeProfile.value
         val config = _socketConfig.value
@@ -211,11 +228,12 @@ class AttendanceRepository(private val context: Context) {
             employeeName = profile.name,
             locationName = effectiveLocation,
             imei = config.imei,
-            status = "Success",
+            status = if (isSynced) "Success" else "Queued Offline",
             txHex = txHex,
             rxHex = rxHex,
             speedKmh = speedKmh,
-            courseAngle = courseAngle
+            courseAngle = courseAngle,
+            isSynced = isSynced
         )
 
         if (type == AttendanceType.TIME_IN) {
@@ -224,7 +242,40 @@ class AttendanceRepository(private val context: Context) {
             _lastTimeOut.value = record
         }
 
+        // Persist to local SQLite database for offline reliability and history
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                dbHelper.insertRecord(
+                    AttendanceRecordEntity(
+                        type = type.name,
+                        timestamp = now,
+                        formattedDateTime = formattedDate,
+                        latitude = lat,
+                        longitude = lon,
+                        speedKmh = speedKmh,
+                        courseAngle = courseAngle,
+                        satellitesCount = satellitesCount,
+                        altitudeMeters = altitudeMeters,
+                        companyCode = profile.companyCode,
+                        employeeCode = profile.employeeCode,
+                        employeeName = profile.name,
+                        locationName = effectiveLocation,
+                        imei = config.imei,
+                        isSynced = isSynced
+                    )
+                )
+            } catch (_: Exception) {}
+        }
+
         return record
+    }
+
+    suspend fun markRecordSynced(id: Long) {
+        dbHelper.markSynced(id)
+    }
+
+    suspend fun getPendingOfflineRecords(): List<AttendanceRecordEntity> {
+        return dbHelper.getUnsyncedRecords()
     }
 
     fun updateProfileLocation(newLocation: String) {
@@ -399,6 +450,7 @@ class AttendanceRepository(private val context: Context) {
             putBoolean("use_ws", updatedConfig.useWebSocket)
             putString("server_digits", updatedConfig.serverDigits)
             putInt("tz_offset_hours", updatedConfig.timezoneOffsetHours)
+            putBoolean("use_device_time", updatedConfig.useDeviceTime)
             apply()
         }
         if (_employeeProfile.value.imei != sanitizedImei || _employeeProfile.value.serverDigits != updatedConfig.serverDigits) {

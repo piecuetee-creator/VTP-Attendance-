@@ -1,6 +1,11 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.AttendanceRepository
@@ -17,8 +22,10 @@ import com.example.network.ConnectionStatus
 import com.example.network.Gt06SocketClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -32,6 +39,12 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     val socketConfig: StateFlow<SocketConfig> = repository.socketConfig
     val lastTimeIn: StateFlow<AttendanceRecord?> = repository.lastTimeIn
     val lastTimeOut: StateFlow<AttendanceRecord?> = repository.lastTimeOut
+
+    val unsyncedCount: StateFlow<Int> = repository.unsyncedCount
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
     val connectionStatus: StateFlow<ConnectionStatus> = socketClient.connectionStatus
     val logs: StateFlow<List<SocketLogEntry>> = socketClient.logs
@@ -66,6 +79,13 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     )
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
+    private val connectivityManager = application.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            syncOfflineRecords()
+        }
+    }
+
     init {
         // Initial log and location fetch
         socketClient.addLog(
@@ -73,6 +93,64 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             "Presence VTP Attendance Client initialized (Powered by VTP)"
         )
         refreshLocation()
+
+        try {
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            connectivityManager?.registerNetworkCallback(request, networkCallback)
+        } catch (_: Exception) {}
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            connectivityManager?.unregisterNetworkCallback(networkCallback)
+        } catch (_: Exception) {}
+    }
+
+    fun syncOfflineRecords() {
+        if (_isSyncing.value) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _isSyncing.value = true
+            try {
+                val pending = repository.getPendingOfflineRecords()
+                if (pending.isEmpty()) return@launch
+
+                socketClient.addLog(LogDirection.INFO, "Auto-syncing ${pending.size} offline record(s) to GT06 server...")
+                var syncedCount = 0
+                val config = socketConfig.value
+                for (item in pending) {
+                    val isTimeIn = item.type == AttendanceType.TIME_IN.name
+                    val (ok, err) = socketClient.sendAttendance(
+                        config = config,
+                        lat = item.latitude,
+                        lon = item.longitude,
+                        isTimeIn = isTimeIn,
+                        speedKmh = item.speedKmh,
+                        courseAngle = item.courseAngle,
+                        satellitesCount = item.satellitesCount,
+                        altitudeMeters = item.altitudeMeters,
+                        timestampMs = item.timestamp
+                    )
+                    if (ok) {
+                        repository.markRecordSynced(item.id)
+                        syncedCount++
+                        socketClient.addLog(LogDirection.INFO, "Successfully synced offline ${item.type} from ${item.formattedDateTime}")
+                    } else {
+                        socketClient.addLog(LogDirection.WARN, "Sync postponed: Server returned: $err. Will retry when connection stabilizes.")
+                        break
+                    }
+                }
+                if (syncedCount > 0) {
+                    socketClient.addLog(LogDirection.INFO, "Offline sync complete: $syncedCount record(s) transmitted.")
+                }
+            } catch (e: Exception) {
+                socketClient.addLog(LogDirection.ERROR, "Sync error: ${e.message}")
+            } finally {
+                _isSyncing.value = false
+            }
+        }
     }
 
     val pakistanPresets = locationManager.pakistanPresets
@@ -168,7 +246,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         rxHex = "Transmitted OK",
                         locationNameOverride = resolvedLocName,
                         speedKmh = coords.speedKmh,
-                        courseAngle = coords.bearing
+                        courseAngle = coords.bearing,
+                        satellitesCount = coords.satellitesCount,
+                        altitudeMeters = coords.altitudeMeters,
+                        isSynced = true
                     )
                     _activeDialogRecord.value = record
                     socketClient.addLog(
@@ -176,17 +257,44 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         "Time In marked successfully for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
                     )
                 } else {
-                    // Handshake failed or server error: reset and notify user
-                    _activeDialogRecord.value = null
-                    val errorDetail = if (message.isNotBlank()) message else "Connection handshake failed"
-                    _serverErrorMessage.value = "Server Error: Unable to establish connection with attendance server ($errorDetail).\n\nAttendance was NOT marked. Please verify server settings or network connectivity."
-                    socketClient.addLog(LogDirection.ERROR, "Time In server transmission failed: $errorDetail")
+                    // Offline Fallback: Save in Room database so attendance is never lost
+                    val record = repository.saveAttendanceRecord(
+                        type = AttendanceType.TIME_IN,
+                        lat = coords.latitude,
+                        lon = coords.longitude,
+                        txHex = "0x12 GPS Location (Speed: ${coords.formatSpeed()}, Angle: ${coords.formatBearing()})",
+                        rxHex = null,
+                        locationNameOverride = resolvedLocName,
+                        speedKmh = coords.speedKmh,
+                        courseAngle = coords.bearing,
+                        satellitesCount = coords.satellitesCount,
+                        altitudeMeters = coords.altitudeMeters,
+                        isSynced = false
+                    )
+                    _activeDialogRecord.value = record
+                    val errorDetail = if (message.isNotBlank()) message else "No internet/server unreachable"
+                    socketClient.addLog(LogDirection.WARN, "Time In saved locally in offline mode ($errorDetail). Will auto-sync when online.")
                 }
             } catch (e: Exception) {
-                _activeDialogRecord.value = null
-                val err = e.localizedMessage ?: "Unknown server error"
-                _serverErrorMessage.value = "Server Error: $err\n\nAttendance was NOT marked. Please try again."
-                socketClient.addLog(LogDirection.ERROR, "Time In unexpected error: $err")
+                val coords = _currentCoordinates.value
+                val profile = employeeProfile.value
+                val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
+                val record = repository.saveAttendanceRecord(
+                    type = AttendanceType.TIME_IN,
+                    lat = coords.latitude,
+                    lon = coords.longitude,
+                    txHex = null,
+                    rxHex = null,
+                    locationNameOverride = resolvedLocName,
+                    speedKmh = coords.speedKmh,
+                    courseAngle = coords.bearing,
+                    satellitesCount = coords.satellitesCount,
+                    altitudeMeters = coords.altitudeMeters,
+                    isSynced = false
+                )
+                _activeDialogRecord.value = record
+                val err = e.localizedMessage ?: "Network error"
+                socketClient.addLog(LogDirection.WARN, "Time In stored in offline database ($err). Will auto-sync when online.")
             } finally {
                 _isProcessingTimeIn.value = false
             }
@@ -242,7 +350,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         rxHex = "Transmitted OK",
                         locationNameOverride = resolvedLocName,
                         speedKmh = coords.speedKmh,
-                        courseAngle = coords.bearing
+                        courseAngle = coords.bearing,
+                        satellitesCount = coords.satellitesCount,
+                        altitudeMeters = coords.altitudeMeters,
+                        isSynced = true
                     )
                     _activeDialogRecord.value = record
                     socketClient.addLog(
@@ -250,17 +361,44 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         "Time Out marked successfully for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
                     )
                 } else {
-                    // Handshake failed or server error: reset and notify user
-                    _activeDialogRecord.value = null
-                    val errorDetail = if (message.isNotBlank()) message else "Connection handshake failed"
-                    _serverErrorMessage.value = "Server Error: Unable to establish connection with attendance server ($errorDetail).\n\nAttendance was NOT marked. Please verify server settings or network connectivity."
-                    socketClient.addLog(LogDirection.ERROR, "Time Out server transmission failed: $errorDetail")
+                    // Offline Fallback: Save in Room database so attendance is never lost
+                    val record = repository.saveAttendanceRecord(
+                        type = AttendanceType.TIME_OUT,
+                        lat = coords.latitude,
+                        lon = coords.longitude,
+                        txHex = "0x12 GPS Location (Speed: ${coords.formatSpeed()}, Angle: ${coords.formatBearing()})",
+                        rxHex = null,
+                        locationNameOverride = resolvedLocName,
+                        speedKmh = coords.speedKmh,
+                        courseAngle = coords.bearing,
+                        satellitesCount = coords.satellitesCount,
+                        altitudeMeters = coords.altitudeMeters,
+                        isSynced = false
+                    )
+                    _activeDialogRecord.value = record
+                    val errorDetail = if (message.isNotBlank()) message else "No internet/server unreachable"
+                    socketClient.addLog(LogDirection.WARN, "Time Out saved locally in offline mode ($errorDetail). Will auto-sync when online.")
                 }
             } catch (e: Exception) {
-                _activeDialogRecord.value = null
-                val err = e.localizedMessage ?: "Unknown server error"
-                _serverErrorMessage.value = "Server Error: $err\n\nAttendance was NOT marked. Please try again."
-                socketClient.addLog(LogDirection.ERROR, "Time Out unexpected error: $err")
+                val coords = _currentCoordinates.value
+                val profile = employeeProfile.value
+                val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
+                val record = repository.saveAttendanceRecord(
+                    type = AttendanceType.TIME_OUT,
+                    lat = coords.latitude,
+                    lon = coords.longitude,
+                    txHex = null,
+                    rxHex = null,
+                    locationNameOverride = resolvedLocName,
+                    speedKmh = coords.speedKmh,
+                    courseAngle = coords.bearing,
+                    satellitesCount = coords.satellitesCount,
+                    altitudeMeters = coords.altitudeMeters,
+                    isSynced = false
+                )
+                _activeDialogRecord.value = record
+                val err = e.localizedMessage ?: "Network error"
+                socketClient.addLog(LogDirection.WARN, "Time Out stored in offline database ($err). Will auto-sync when online.")
             } finally {
                 _isProcessingTimeOut.value = false
             }

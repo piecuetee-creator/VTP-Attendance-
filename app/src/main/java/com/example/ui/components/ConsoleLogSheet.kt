@@ -291,6 +291,7 @@ private fun ConsoleLogItem(log: SocketLogEntry) {
         LogDirection.TX -> TimeInGreen
         LogDirection.RX -> ConsoleCyan
         LogDirection.INFO -> VtpOrange
+        LogDirection.WARN -> Color(0xFFFBBF24)
         LogDirection.ERROR -> Color(0xFFF87171)
     }
 

@@ -87,6 +87,7 @@ fun AttendanceConfirmationCard(
         ) {
             if (isMarked && record != null) {
                 val actionName = if (isTimeIn) "Time In" else "Time Out"
+                val isSynced = record.isSynced
 
                 // Uncluttered, compact confirmation header
                 Row(
@@ -113,16 +114,16 @@ fun AttendanceConfirmationCard(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "$actionName marked successfully!",
+                            text = if (isSynced) "$actionName marked successfully!" else "$actionName recorded offline",
                             fontSize = 15.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
-                            text = record.formattedDateTime,
+                            text = if (isSynced) record.formattedDateTime else "${record.formattedDateTime} • Queued for auto-sync",
                             fontSize = 12.5.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = VtpOrange,
+                            color = if (isSynced) VtpOrange else Color(0xFFFBBF24),
                             modifier = Modifier.padding(top = 2.dp)
                         )
                     }

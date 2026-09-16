@@ -130,6 +130,8 @@ fun AttendanceScreen(
     val activeDialogRecord by viewModel.activeDialogRecord.collectAsStateWithLifecycle()
     val isDialogAlreadyMarked by viewModel.isDialogAlreadyMarked.collectAsStateWithLifecycle()
     val authState by viewModel.authState.collectAsStateWithLifecycle()
+    val unsyncedCount by viewModel.unsyncedCount.collectAsStateWithLifecycle()
+    val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
 
     val timeInRec = lastTimeIn
     val timeOutRec = lastTimeOut
@@ -317,6 +319,21 @@ fun AttendanceScreen(
                         expanded = showOptionsMenu,
                         onDismissRequest = { showOptionsMenu = false }
                     ) {
+                        if (unsyncedCount > 0) {
+                            DropdownMenuItem(
+                                text = { Text("Sync Offline Records ($unsyncedCount)") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, tint = Color(0xFFFBBF24))
+                                },
+                                onClick = {
+                                    showOptionsMenu = false
+                                    viewModel.syncOfflineRecords()
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Syncing $unsyncedCount offline record(s)...")
+                                    }
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Settings & Connection") },
                             leadingIcon = {
@@ -556,6 +573,9 @@ fun AttendanceScreen(
             profile = employeeProfile,
             config = socketConfig,
             isUserLoggedIn = isUserLoggedIn,
+            unsyncedCount = unsyncedCount,
+            isSyncing = isSyncing,
+            onSyncOffline = { viewModel.syncOfflineRecords() },
             onSaveProfile = { newProfile ->
                 viewModel.updateProfile(newProfile)
                 coroutineScope.launch {

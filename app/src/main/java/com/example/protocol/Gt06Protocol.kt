@@ -112,6 +112,25 @@ object Gt06Protocol {
     }
 
     /**
+     * Converts a decimal integer (0..99) to Binary-Coded Decimal (BCD) byte.
+     * Required by standard GT06 GPS protocol servers.
+     */
+    fun toBcd(value: Int): Byte {
+        val v = value.coerceIn(0, 99)
+        return (((v / 10) shl 4) or (v % 10)).toByte()
+    }
+
+    /**
+     * Converts a Binary-Coded Decimal (BCD) byte back to integer (0..99).
+     */
+    fun fromBcd(b: Byte): Int {
+        val raw = b.toInt() and 0xFF
+        val high = (raw ushr 4) and 0x0F
+        val low = raw and 0x0F
+        return (high * 10) + low
+    }
+
+    /**
      * Builds a GT06 GPS Location Packet (0x12).
      * @param lat Latitude in decimal degrees (e.g. 24.8607)
      * @param lon Longitude in decimal degrees (e.g. 67.0011)
@@ -130,6 +149,7 @@ object Gt06Protocol {
      * @param satellitesCount Visible GPS satellite count
      * @param altitudeMeters Altitude in meters
      * @param timezoneOffsetHours Timezone offset in hours (default: 5 for Karachi / Pakistan Standard Time)
+     * @param useDeviceTime When true, uses device system time directly (locked to device to prevent tampering)
      */
     fun buildLocationPacket(
         lat: Double,
@@ -141,7 +161,8 @@ object Gt06Protocol {
         courseAngle: Float = 0f,
         satellitesCount: Int = 11,
         altitudeMeters: Double = 0.0,
-        timezoneOffsetHours: Int = 5
+        timezoneOffsetHours: Int = 5,
+        useDeviceTime: Boolean = true
     ): ByteArray {
         val totalLength = 36 // 2 start + 1 len + 1 proto + 6 time + 1 gps + 4 lat + 4 lon + 1 spd + 2 course + 8 lbs + 2 serial + 2 crc + 2 stop
         val packet = ByteArray(36)
@@ -156,21 +177,27 @@ object Gt06Protocol {
         // Protocol number: 0x12 (GPS Location)
         packet[3] = 0x12.toByte()
 
-        // Date Time: 6 bytes (YY MM DD HH mm ss in specified TimeZone)
-        val tz = if (timezoneOffsetHours == 0) {
-            TimeZone.getTimeZone("UTC")
+        // Date Time: 6 bytes (YY MM DD HH mm ss in BCD format)
+        val cal = if (useDeviceTime) {
+            Calendar.getInstance()
         } else {
-            val sign = if (timezoneOffsetHours >= 0) "+" else "-"
-            TimeZone.getTimeZone(String.format(java.util.Locale.US, "GMT%s%02d:00", sign, Math.abs(timezoneOffsetHours)))
+            val tz = if (timezoneOffsetHours == 0) {
+                TimeZone.getTimeZone("UTC")
+            } else {
+                val sign = if (timezoneOffsetHours >= 0) "+" else "-"
+                TimeZone.getTimeZone(String.format(java.util.Locale.US, "GMT%s%02d:00", sign, Math.abs(timezoneOffsetHours)))
+            }
+            Calendar.getInstance(tz)
         }
-        val cal = Calendar.getInstance(tz)
         cal.timeInMillis = timestampMs
-        packet[4] = ((cal.get(Calendar.YEAR) % 100) and 0xFF).toByte()
-        packet[5] = ((cal.get(Calendar.MONTH) + 1) and 0xFF).toByte()
-        packet[6] = (cal.get(Calendar.DAY_OF_MONTH) and 0xFF).toByte()
-        packet[7] = (cal.get(Calendar.HOUR_OF_DAY) and 0xFF).toByte()
-        packet[8] = (cal.get(Calendar.MINUTE) and 0xFF).toByte()
-        packet[9] = (cal.get(Calendar.SECOND) and 0xFF).toByte()
+
+        // Standard GT06 BCD Encoding: prevents 6-day offset and hour discrepancies
+        packet[4] = toBcd(cal.get(Calendar.YEAR) % 100)
+        packet[5] = toBcd(cal.get(Calendar.MONTH) + 1)
+        packet[6] = toBcd(cal.get(Calendar.DAY_OF_MONTH))
+        packet[7] = toBcd(cal.get(Calendar.HOUR_OF_DAY))
+        packet[8] = toBcd(cal.get(Calendar.MINUTE))
+        packet[9] = toBcd(cal.get(Calendar.SECOND))
 
         // GPS Info length (0xC for 12 bytes) & Satellites count (low nibble 0x0B = 11 satellites)
         val clampedSats = satellitesCount.coerceIn(1, 15)
@@ -250,16 +277,22 @@ object Gt06Protocol {
         val utcTime: String
     )
 
-    fun parseLocationPacket(packet: ByteArray, timezoneOffsetHours: Int = 5): ParsedLocation? {
+    fun parseLocationPacket(
+        packet: ByteArray,
+        timezoneOffsetHours: Int = 5,
+        useDeviceTime: Boolean = true
+    ): ParsedLocation? {
         if (packet.size < 36 || packet[3] != 0x12.toByte()) return null
         return try {
-            val year = 2000 + (packet[4].toInt() and 0xFF)
-            val month = packet[5].toInt() and 0xFF
-            val day = packet[6].toInt() and 0xFF
-            val hour = packet[7].toInt() and 0xFF
-            val min = packet[8].toInt() and 0xFF
-            val sec = packet[9].toInt() and 0xFF
-            val tzLabel = when (timezoneOffsetHours) {
+            val year = 2000 + fromBcd(packet[4])
+            val month = fromBcd(packet[5])
+            val day = fromBcd(packet[6])
+            val hour = fromBcd(packet[7])
+            val min = fromBcd(packet[8])
+            val sec = fromBcd(packet[9])
+            val tzLabel = if (useDeviceTime) {
+                "Device Time"
+            } else when (timezoneOffsetHours) {
                 5 -> "PKT (UTC+5)"
                 0 -> "UTC"
                 else -> if (timezoneOffsetHours >= 0) "UTC+$timezoneOffsetHours" else "UTC$timezoneOffsetHours"

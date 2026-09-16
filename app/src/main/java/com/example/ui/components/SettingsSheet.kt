@@ -80,6 +80,9 @@ fun SettingsSheet(
     profile: EmployeeProfile,
     config: SocketConfig,
     isUserLoggedIn: Boolean = false,
+    unsyncedCount: Int = 0,
+    isSyncing: Boolean = false,
+    onSyncOffline: (() -> Unit)? = null,
     onSaveProfile: (EmployeeProfile) -> Unit,
     onSaveConfig: (SocketConfig) -> Unit,
     onDismiss: () -> Unit,
@@ -134,6 +137,9 @@ fun SettingsSheet(
                 profile = profile,
                 config = config,
                 isUserLoggedIn = isUserLoggedIn,
+                unsyncedCount = unsyncedCount,
+                isSyncing = isSyncing,
+                onSyncOffline = onSyncOffline,
                 onSaveProfile = {
                     onSaveProfile(it)
                     onDismiss()
@@ -156,6 +162,9 @@ fun SettingsContent(
     profile: EmployeeProfile,
     config: SocketConfig,
     isUserLoggedIn: Boolean = false,
+    unsyncedCount: Int = 0,
+    isSyncing: Boolean = false,
+    onSyncOffline: (() -> Unit)? = null,
     onSaveProfile: (EmployeeProfile) -> Unit,
     onSaveConfig: (SocketConfig) -> Unit,
     modifier: Modifier = Modifier,
@@ -172,6 +181,7 @@ fun SettingsContent(
     var tcpPort by remember { mutableStateOf(config.tcpPort.toString()) }
     var useWs by remember { mutableStateOf(config.useWebSocket) }
     var timezoneOffsetHours by remember { mutableStateOf(config.timezoneOffsetHours) }
+    var useDeviceTime by remember { mutableStateOf(config.useDeviceTime) }
 
     var saveConfirmation by remember { mutableStateOf(false) }
 
@@ -503,6 +513,122 @@ fun SettingsContent(
                         )
                     }
                 }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // Enforce Device Local Time Switch
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Enforce Device Local Time",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (useDeviceTime) "Locked to phone clock (BCD encoded). Prevents server clock drift." else "Uses manual offset calculation.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = useDeviceTime,
+                        onCheckedChange = { useDeviceTime = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = VtpOrange
+                        )
+                    )
+                }
+            }
+        }
+
+        // Section: Offline SQLite Database (Room Persistence & Sync)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        tint = VtpOrange,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "OFFLINE STORAGE (SQLITE / INTERNAL DB)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = VtpOrange,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Text(
+                    text = "If network connectivity or GSM signal drops on the road, attendance is automatically stored safely in the device's local database. Once internet is restored, punches sync automatically.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Pending Offline Records",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (unsyncedCount > 0) "$unsyncedCount record(s) queued for sync" else "All records synced with server",
+                            fontSize = 12.sp,
+                            color = if (unsyncedCount > 0) Color(0xFFFBBF24) else Color(0xFF22C55E),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    if (onSyncOffline != null) {
+                        Button(
+                            onClick = onSyncOffline,
+                            enabled = unsyncedCount > 0 && !isSyncing,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = VtpOrange,
+                                contentColor = Color.White,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isSyncing) "Syncing..." else "Sync Now",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -724,7 +850,8 @@ fun SettingsContent(
                             tcpPort = port,
                             useWebSocket = useWs,
                             serverDigits = cleanServer,
-                            timezoneOffsetHours = timezoneOffsetHours
+                            timezoneOffsetHours = timezoneOffsetHours,
+                            useDeviceTime = useDeviceTime
                         )
                     )
                     // Profile credentials (name, desig, loc, codes) remain locked as entered at login,
