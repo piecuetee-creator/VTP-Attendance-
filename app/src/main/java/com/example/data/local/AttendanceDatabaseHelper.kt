@@ -139,6 +139,58 @@ class AttendanceDatabaseHelper(context: Context) :
         refreshUnsyncedCount()
     }
 
+    fun getLatestRecordTimestamp(): Long {
+        val db = readableDatabase
+        val cursor = db.rawQuery("SELECT MAX(timestamp) FROM $TABLE_NAME", null)
+        var maxTime = 0L
+        cursor.use {
+            if (it.moveToFirst() && !it.isNull(0)) {
+                maxTime = it.getLong(0)
+            }
+        }
+        return maxTime
+    }
+
+    fun getLatestRecordForType(type: String, companyCode: String, employeeCode: String): AttendanceRecordEntity? {
+        val db = readableDatabase
+        val cursor = db.query(
+            TABLE_NAME,
+            null,
+            "type = ? AND companyCode = ? AND employeeCode = ?",
+            arrayOf(type, companyCode, employeeCode),
+            null,
+            null,
+            "timestamp DESC",
+            "1"
+        )
+        cursor.use {
+            if (it.moveToFirst()) {
+                return AttendanceRecordEntity(
+                    id = it.getLong(it.getColumnIndexOrThrow("id")),
+                    type = it.getString(it.getColumnIndexOrThrow("type")),
+                    timestamp = it.getLong(it.getColumnIndexOrThrow("timestamp")),
+                    formattedDateTime = it.getString(it.getColumnIndexOrThrow("formattedDateTime")),
+                    latitude = it.getDouble(it.getColumnIndexOrThrow("latitude")),
+                    longitude = it.getDouble(it.getColumnIndexOrThrow("longitude")),
+                    speedKmh = it.getFloat(it.getColumnIndexOrThrow("speedKmh")),
+                    courseAngle = it.getFloat(it.getColumnIndexOrThrow("courseAngle")),
+                    satellitesCount = it.getInt(it.getColumnIndexOrThrow("satellitesCount")),
+                    altitudeMeters = it.getDouble(it.getColumnIndexOrThrow("altitudeMeters")),
+                    companyCode = it.getString(it.getColumnIndexOrThrow("companyCode")),
+                    employeeCode = it.getString(it.getColumnIndexOrThrow("employeeCode")),
+                    employeeName = it.getString(it.getColumnIndexOrThrow("employeeName")),
+                    locationName = it.getString(it.getColumnIndexOrThrow("locationName")),
+                    imei = it.getString(it.getColumnIndexOrThrow("imei")),
+                    isSynced = it.getInt(it.getColumnIndexOrThrow("isSynced")) == 1,
+                    syncAttempts = it.getInt(it.getColumnIndexOrThrow("syncAttempts")),
+                    lastSyncError = it.getString(it.getColumnIndexOrThrow("lastSyncError")),
+                    createdAt = it.getLong(it.getColumnIndexOrThrow("createdAt"))
+                )
+            }
+        }
+        return null
+    }
+
     fun getUnsyncedCount(): Int {
         val db = readableDatabase
         val cursor = db.rawQuery("SELECT COUNT(*) FROM $TABLE_NAME WHERE isSynced = 0", null)

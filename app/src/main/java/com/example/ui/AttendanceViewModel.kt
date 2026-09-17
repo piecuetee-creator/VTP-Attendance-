@@ -21,9 +21,12 @@ import com.example.model.SocketLogEntry
 import com.example.network.ConnectionStatus
 import com.example.network.Gt06SocketClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -69,6 +72,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _isDialogAlreadyMarked = MutableStateFlow(false)
     val isDialogAlreadyMarked: StateFlow<Boolean> = _isDialogAlreadyMarked.asStateFlow()
+
+    private val _syncNotificationEvent = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 5)
+    val syncNotificationEvent: SharedFlow<String> = _syncNotificationEvent.asSharedFlow()
+
+    fun getEffectiveTimeZone() = repository.getEffectiveTimeZone()
 
     private val _authState = MutableStateFlow(
         AuthState(
@@ -135,8 +143,12 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     )
                     if (ok) {
                         repository.markRecordSynced(item.id)
+                        val attType = if (isTimeIn) AttendanceType.TIME_IN else AttendanceType.TIME_OUT
+                        repository.updateRecordSyncedStatus(attType, item.timestamp)
                         syncedCount++
-                        socketClient.addLog(LogDirection.INFO, "Successfully synced offline ${item.type} from ${item.formattedDateTime}")
+                        val actionLabel = if (isTimeIn) "Time In" else "Time Out"
+                        _syncNotificationEvent.emit("$actionLabel has been marked successfully on server!")
+                        socketClient.addLog(LogDirection.INFO, "Successfully synced queued $actionLabel from ${item.formattedDateTime}")
                     } else {
                         socketClient.addLog(LogDirection.WARN, "Sync postponed: Server returned: $err. Will retry when connection stabilizes.")
                         break
@@ -225,6 +237,20 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
                 val config = socketConfig.value
 
+                // Anti-backdating protection: prefer GPS satellite atomic clock if system clock deviates by > 3 minutes
+                val punchTime = if (coords.isRealGps && coords.timestamp > 0L && Math.abs(System.currentTimeMillis() - coords.timestamp) > 180_000L) {
+                    coords.timestamp
+                } else {
+                    System.currentTimeMillis()
+                }
+
+                val validationError = repository.validateAttendanceTimestamp(punchTime, isTimeIn = true)
+                if (validationError != null) {
+                    _serverErrorMessage.value = validationError
+                    socketClient.addLog(LogDirection.ERROR, validationError)
+                    return@launch
+                }
+
                 // Transmit to server and require successful handshake
                 val (success, message) = socketClient.sendAttendance(
                     config = config,
@@ -234,7 +260,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     speedKmh = coords.speedKmh,
                     courseAngle = coords.bearing,
                     satellitesCount = coords.satellitesCount,
-                    altitudeMeters = coords.altitudeMeters
+                    altitudeMeters = coords.altitudeMeters,
+                    timestampMs = punchTime
                 )
 
                 if (success) {
@@ -249,7 +276,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         courseAngle = coords.bearing,
                         satellitesCount = coords.satellitesCount,
                         altitudeMeters = coords.altitudeMeters,
-                        isSynced = true
+                        isSynced = true,
+                        timestampOverride = punchTime
                     )
                     _activeDialogRecord.value = record
                     socketClient.addLog(
@@ -269,16 +297,18 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         courseAngle = coords.bearing,
                         satellitesCount = coords.satellitesCount,
                         altitudeMeters = coords.altitudeMeters,
-                        isSynced = false
+                        isSynced = false,
+                        timestampOverride = punchTime
                     )
                     _activeDialogRecord.value = record
                     val errorDetail = if (message.isNotBlank()) message else "No internet/server unreachable"
-                    socketClient.addLog(LogDirection.WARN, "Time In saved locally in offline mode ($errorDetail). Will auto-sync when online.")
+                    socketClient.addLog(LogDirection.WARN, "Time In saved locally in offline queue ($errorDetail). Will auto-sync when online.")
                 }
             } catch (e: Exception) {
                 val coords = _currentCoordinates.value
                 val profile = employeeProfile.value
                 val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
+                val punchTime = System.currentTimeMillis()
                 val record = repository.saveAttendanceRecord(
                     type = AttendanceType.TIME_IN,
                     lat = coords.latitude,
@@ -290,7 +320,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     courseAngle = coords.bearing,
                     satellitesCount = coords.satellitesCount,
                     altitudeMeters = coords.altitudeMeters,
-                    isSynced = false
+                    isSynced = false,
+                    timestampOverride = punchTime
                 )
                 _activeDialogRecord.value = record
                 val err = e.localizedMessage ?: "Network error"
@@ -330,6 +361,20 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
                 val config = socketConfig.value
 
+                // Anti-backdating protection: prefer GPS satellite atomic clock if system clock deviates by > 3 minutes
+                val punchTime = if (coords.isRealGps && coords.timestamp > 0L && Math.abs(System.currentTimeMillis() - coords.timestamp) > 180_000L) {
+                    coords.timestamp
+                } else {
+                    System.currentTimeMillis()
+                }
+
+                val validationError = repository.validateAttendanceTimestamp(punchTime, isTimeIn = false)
+                if (validationError != null) {
+                    _serverErrorMessage.value = validationError
+                    socketClient.addLog(LogDirection.ERROR, validationError)
+                    return@launch
+                }
+
                 val (success, message) = socketClient.sendAttendance(
                     config = config,
                     lat = coords.latitude,
@@ -338,7 +383,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     speedKmh = coords.speedKmh,
                     courseAngle = coords.bearing,
                     satellitesCount = coords.satellitesCount,
-                    altitudeMeters = coords.altitudeMeters
+                    altitudeMeters = coords.altitudeMeters,
+                    timestampMs = punchTime
                 )
 
                 if (success) {
@@ -353,7 +399,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         courseAngle = coords.bearing,
                         satellitesCount = coords.satellitesCount,
                         altitudeMeters = coords.altitudeMeters,
-                        isSynced = true
+                        isSynced = true,
+                        timestampOverride = punchTime
                     )
                     _activeDialogRecord.value = record
                     socketClient.addLog(
@@ -373,16 +420,18 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         courseAngle = coords.bearing,
                         satellitesCount = coords.satellitesCount,
                         altitudeMeters = coords.altitudeMeters,
-                        isSynced = false
+                        isSynced = false,
+                        timestampOverride = punchTime
                     )
                     _activeDialogRecord.value = record
                     val errorDetail = if (message.isNotBlank()) message else "No internet/server unreachable"
-                    socketClient.addLog(LogDirection.WARN, "Time Out saved locally in offline mode ($errorDetail). Will auto-sync when online.")
+                    socketClient.addLog(LogDirection.WARN, "Time Out saved locally in offline queue ($errorDetail). Will auto-sync when online.")
                 }
             } catch (e: Exception) {
                 val coords = _currentCoordinates.value
                 val profile = employeeProfile.value
                 val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
+                val punchTime = System.currentTimeMillis()
                 val record = repository.saveAttendanceRecord(
                     type = AttendanceType.TIME_OUT,
                     lat = coords.latitude,
@@ -394,7 +443,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     courseAngle = coords.bearing,
                     satellitesCount = coords.satellitesCount,
                     altitudeMeters = coords.altitudeMeters,
-                    isSynced = false
+                    isSynced = false,
+                    timestampOverride = punchTime
                 )
                 _activeDialogRecord.value = record
                 val err = e.localizedMessage ?: "Network error"

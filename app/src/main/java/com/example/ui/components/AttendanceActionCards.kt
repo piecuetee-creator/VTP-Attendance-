@@ -71,7 +71,11 @@ fun AttendanceActionCards(
         // TIME IN CARD (Vibrant Sunrise Orange Gradient)
         AttendanceGradientCard(
             title = "Time In",
-            subtitle = if (lastTimeIn != null) "Punched Today" else "Start Shift",
+            subtitle = when {
+                lastTimeIn != null && !lastTimeIn.isSynced -> "In Queue (Offline)"
+                lastTimeIn != null -> "Punched Today"
+                else -> "Start Shift"
+            },
             isTimeIn = true,
             markedRecord = lastTimeIn,
             isProcessing = isProcessingTimeIn,
@@ -83,7 +87,11 @@ fun AttendanceActionCards(
         // TIME OUT CARD (Obsidian Black & Charcoal Gradient)
         AttendanceGradientCard(
             title = "Time Out",
-            subtitle = if (lastTimeOut != null) "Punched Today" else "End Shift",
+            subtitle = when {
+                lastTimeOut != null && !lastTimeOut.isSynced -> "In Queue (Offline)"
+                lastTimeOut != null -> "Punched Today"
+                else -> "End Shift"
+            },
             isTimeIn = false,
             markedRecord = lastTimeOut,
             isProcessing = isProcessingTimeOut,
@@ -277,16 +285,19 @@ private fun AttendanceGradientCard(
                 // Status Pill / Timestamp with Gradient Accent
                 if (markedRecord != null) {
                     val recordTime = markedRecord.formattedDateTime.substringAfter(" ")
+                    val isInQueue = !markedRecord.isSynced
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(14.dp))
                             .background(
-                                if (isTimeIn) {
-                                    Brush.horizontalGradient(
+                                when {
+                                    isInQueue -> Brush.horizontalGradient(
+                                        listOf(Color(0xFFD97706), Color(0xFFF59E0B))
+                                    )
+                                    isTimeIn -> Brush.horizontalGradient(
                                         listOf(Color(0xFFEA580C), Color(0xFFFF6600))
                                     )
-                                } else {
-                                    Brush.horizontalGradient(
+                                    else -> Brush.horizontalGradient(
                                         listOf(Color(0xFF27272A), Color(0xFF18181B))
                                     )
                                 }
@@ -298,16 +309,16 @@ private fun AttendanceGradientCard(
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
+                                imageVector = if (isInQueue) Icons.Default.Schedule else Icons.Default.Check,
+                                contentDescription = if (isInQueue) "In Queue" else "Marked",
                                 tint = Color.White,
                                 modifier = Modifier.size(13.dp)
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = recordTime,
+                                text = if (isInQueue) "Queue • $recordTime" else "Marked • $recordTime",
                                 color = Color.White,
-                                fontSize = 11.5.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                             )

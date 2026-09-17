@@ -79,6 +79,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.collectLatest
 import com.example.R
 import com.example.network.ConnectionStatus
 import com.example.ui.components.AttendanceActionCards
@@ -214,13 +215,25 @@ fun AttendanceScreen(
         }
     }
 
-    // Live Clock timer
+    // Live Clock timer anchored to company operational timezone
     var currentTimeString by remember { mutableStateOf("") }
     LaunchedEffect(Unit) {
-        val clockFormat = SimpleDateFormat("EEEE, dd MMMM • hh:mm:ss a", Locale.getDefault())
+        val clockFormat = SimpleDateFormat("EEEE, dd MMMM • hh:mm:ss a", Locale.getDefault()).apply {
+            timeZone = viewModel.getEffectiveTimeZone()
+        }
         while (true) {
             currentTimeString = clockFormat.format(Date())
             delay(1000)
+        }
+    }
+
+    // Observe offline sync notifications
+    LaunchedEffect(Unit) {
+        viewModel.syncNotificationEvent.collectLatest { notificationMsg ->
+            snackbarHostState.showSnackbar(
+                message = "✓ $notificationMsg",
+                duration = androidx.compose.material3.SnackbarDuration.Short
+            )
         }
     }
 
@@ -435,6 +448,36 @@ fun AttendanceScreen(
                     )
 
                     Spacer(modifier = Modifier.height(18.dp))
+
+                    // In-Queue status banner
+                    if (unsyncedCount > 0) {
+                        Surface(
+                            onClick = { viewModel.syncOfflineRecords() },
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF59E0B).copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.45f)),
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    tint = Color(0xFFF59E0B),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (unsyncedCount == 1) "1 packet in queue • Tap to sync" else "$unsyncedCount packets in queue • Tap to sync",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFDE68A)
+                                )
+                            }
+                        }
+                    }
 
                     // Time In and Time Out side-by-side container
                     AttendanceActionCards(

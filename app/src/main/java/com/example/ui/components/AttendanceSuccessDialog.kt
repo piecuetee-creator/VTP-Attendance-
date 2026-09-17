@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -79,7 +80,12 @@ fun AttendanceSuccessDialog(
 ) {
     var showPacketDetails by remember { mutableStateOf(false) }
     val isTimeIn = record.type == AttendanceType.TIME_IN
-    val primaryColor = if (isTimeIn) TimeInGreen else TimeOutAmber
+    val isSynced = record.isSynced
+    val primaryColor = when {
+        !isSynced -> Color(0xFFF59E0B)
+        isTimeIn -> TimeInGreen
+        else -> TimeOutAmber
+    }
     val containerColor = primaryColor.copy(alpha = 0.16f)
     val actionTitle = if (isTimeIn) "Time In" else "Time Out"
 
@@ -120,7 +126,7 @@ fun AttendanceSuccessDialog(
                     }
                 }
 
-                // Centered Checkmark Icon
+                // Centered Icon (Checkmark if synced, Clock/Hourglass if in queue)
                 Box(
                     modifier = Modifier
                         .size(72.dp)
@@ -130,8 +136,8 @@ fun AttendanceSuccessDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Success",
+                        imageVector = if (isSynced) Icons.Default.Check else Icons.Default.Schedule,
+                        contentDescription = if (isSynced) "Success" else "In Queue",
                         tint = primaryColor,
                         modifier = Modifier.size(40.dp)
                     )
@@ -139,11 +145,11 @@ fun AttendanceSuccessDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Title (e.g. "Time In is already marked!" or "Time In marked successfully!")
-                val headline = if (isAlreadyMarked) {
-                    "$actionTitle is already marked!"
-                } else {
-                    "$actionTitle marked successfully!"
+                // Title (e.g. "Time In is in Queue" or "Time In marked successfully!")
+                val headline = when {
+                    !isSynced -> "$actionTitle is in Queue"
+                    isAlreadyMarked -> "$actionTitle is already marked!"
+                    else -> "$actionTitle marked successfully!"
                 }
 
                 Text(
@@ -156,13 +162,42 @@ fun AttendanceSuccessDialog(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Date and Time (e.g. "07-Sep-2026 09:06 AM")
+                // Date and Time with Sync Status Subtitle
                 Text(
-                    text = record.formattedDateTime,
-                    fontSize = 15.sp,
+                    text = if (isSynced) "${record.formattedDateTime} • Marked on Server" else "${record.formattedDateTime} • Queued Offline",
+                    fontSize = 13.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = primaryColor
                 )
+
+                if (!isSynced) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFF59E0B).copy(alpha = 0.12f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.35f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = Color(0xFFF59E0B),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Attendance saved in offline queue. It will be sent automatically and marked on the server once connection is restored.",
+                                color = Color(0xFFFDE68A),
+                                fontSize = 11.5.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(20.dp))
 

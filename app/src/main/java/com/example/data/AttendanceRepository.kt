@@ -28,9 +28,8 @@ class AttendanceRepository(private val context: Context) {
     val unsyncedCount: Flow<Int> = dbHelper.unsyncedCountFlow
 
     fun getEffectiveTimeZone(): java.util.TimeZone {
-        if (_socketConfig.value.useDeviceTime) {
-            return java.util.TimeZone.getDefault()
-        }
+        // Operational timezone is anchored to company server timezone (default UTC+5 Pakistan Standard Time)
+        // to prevent attendance manipulation via device timezone changes.
         val offset = _socketConfig.value.timezoneOffsetHours
         return if (offset == 0) {
             java.util.TimeZone.getTimeZone("UTC")
@@ -123,6 +122,28 @@ class AttendanceRepository(private val context: Context) {
     )
     val lastTimeOut = _lastTimeOut.asStateFlow()
 
+    fun validateAttendanceTimestamp(timestamp: Long, isTimeIn: Boolean): String? {
+        val highestRecorded = prefs.getLong("highest_recorded_timestamp", 0L)
+        val dbMaxTimestamp = dbHelper.getLatestRecordTimestamp()
+        val maxKnown = maxOf(highestRecorded, dbMaxTimestamp)
+
+        // Strict anti-backdating: prevent clock tampering where user rolls device clock/timezone backwards
+        // (Allows a tiny 90-second buffer for GPS vs system clock micro-jitter)
+        if (maxKnown > 0 && timestamp < (maxKnown - 90_000L)) {
+            val lastFormatted = getDateFormat().format(Date(maxKnown))
+            return "Cannot mark attendance in the past. Clock manipulation detected (last recorded at $lastFormatted)."
+        }
+
+        if (!isTimeIn) {
+            val inRec = _lastTimeIn.value
+            if (inRec != null && timestamp < inRec.timestamp) {
+                return "Time Out timestamp (${getDateFormat().format(Date(timestamp))}) cannot be earlier than Time In (${inRec.formattedDateTime})."
+            }
+        }
+
+        return null
+    }
+
     fun loadSavedRecord(
         type: AttendanceType,
         companyCode: String = _employeeProfile.value.companyCode,
@@ -159,6 +180,15 @@ class AttendanceRepository(private val context: Context) {
         val imei = prefs.getString("${prefix}_imei", "") ?: ""
         val speed = prefs.getFloat("${prefix}_speed", 0f)
         val angle = prefs.getFloat("${prefix}_angle", 0f)
+        var isSynced = prefs.getBoolean("${prefix}_isSynced", true)
+
+        // Check SQLite database for authoritative sync state
+        try {
+            val dbRec = dbHelper.getLatestRecordForType(type.name, companyCode, employeeCode)
+            if (dbRec != null && dbRec.timestamp == time) {
+                isSynced = dbRec.isSynced
+            }
+        } catch (_: Exception) {}
 
         return AttendanceRecord(
             type = type,
@@ -170,10 +200,32 @@ class AttendanceRepository(private val context: Context) {
             employeeName = empName,
             locationName = loc,
             imei = imei,
-            status = "Marked",
+            status = if (isSynced) "Marked" else "In Queue",
             speedKmh = speed,
-            courseAngle = angle
+            courseAngle = angle,
+            isSynced = isSynced
         )
+    }
+
+    fun updateRecordSyncedStatus(type: AttendanceType, timestamp: Long) {
+        val today = getDayKeyFormat().format(Date(timestamp))
+        val profile = _employeeProfile.value
+        val prefix = "${type.name}_${today}_${profile.companyCode}_${profile.employeeCode}"
+        prefs.edit().putBoolean("${prefix}_isSynced", true).apply()
+
+        if (type == AttendanceType.TIME_IN) {
+            _lastTimeIn.value?.let { current ->
+                if (current.timestamp == timestamp || current.isSynced.not()) {
+                    _lastTimeIn.value = current.copy(isSynced = true, status = "Success")
+                }
+            }
+        } else {
+            _lastTimeOut.value?.let { current ->
+                if (current.timestamp == timestamp || current.isSynced.not()) {
+                    _lastTimeOut.value = current.copy(isSynced = true, status = "Success")
+                }
+            }
+        }
     }
 
     fun clearCurrentSession() {
@@ -203,7 +255,12 @@ class AttendanceRepository(private val context: Context) {
         val scopedPrefix = "${type.name}_${today}_${profile.companyCode}_${profile.employeeCode}"
         val effectiveLocation = locationNameOverride?.takeIf { it.isNotBlank() } ?: profile.location
 
+        // Update highest known timestamp to prevent backdating
+        val prevHighest = prefs.getLong("highest_recorded_timestamp", 0L)
+        val newHighest = maxOf(prevHighest, now)
+
         prefs.edit().apply {
+            putLong("highest_recorded_timestamp", newHighest)
             putLong("${scopedPrefix}_time", now)
             putString("${scopedPrefix}_formatted", formattedDate)
             putFloat("${scopedPrefix}_lat", lat.toFloat())
@@ -215,6 +272,7 @@ class AttendanceRepository(private val context: Context) {
             putString("${scopedPrefix}_imei", config.imei)
             putFloat("${scopedPrefix}_speed", speedKmh)
             putFloat("${scopedPrefix}_angle", courseAngle)
+            putBoolean("${scopedPrefix}_isSynced", isSynced)
             apply()
         }
 
@@ -228,7 +286,7 @@ class AttendanceRepository(private val context: Context) {
             employeeName = profile.name,
             locationName = effectiveLocation,
             imei = config.imei,
-            status = if (isSynced) "Success" else "Queued Offline",
+            status = if (isSynced) "Success" else "In Queue",
             txHex = txHex,
             rxHex = rxHex,
             speedKmh = speedKmh,

@@ -162,7 +162,7 @@ object Gt06Protocol {
         satellitesCount: Int = 11,
         altitudeMeters: Double = 0.0,
         timezoneOffsetHours: Int = 5,
-        useDeviceTime: Boolean = true
+        useDeviceTime: Boolean = false
     ): ByteArray {
         val totalLength = 36 // 2 start + 1 len + 1 proto + 6 time + 1 gps + 4 lat + 4 lon + 1 spd + 2 course + 8 lbs + 2 serial + 2 crc + 2 stop
         val packet = ByteArray(36)
@@ -178,17 +178,15 @@ object Gt06Protocol {
         packet[3] = 0x12.toByte()
 
         // Date Time: 6 bytes (YY MM DD HH mm ss in BCD format)
-        val cal = if (useDeviceTime) {
-            Calendar.getInstance()
+        // Strictly anchored to company operational timezone (default GMT+05:00 PKT)
+        // to prevent users from manipulating attendance hours by changing device timezones.
+        val tz = if (timezoneOffsetHours == 0) {
+            TimeZone.getTimeZone("UTC")
         } else {
-            val tz = if (timezoneOffsetHours == 0) {
-                TimeZone.getTimeZone("UTC")
-            } else {
-                val sign = if (timezoneOffsetHours >= 0) "+" else "-"
-                TimeZone.getTimeZone(String.format(java.util.Locale.US, "GMT%s%02d:00", sign, Math.abs(timezoneOffsetHours)))
-            }
-            Calendar.getInstance(tz)
+            val sign = if (timezoneOffsetHours >= 0) "+" else "-"
+            TimeZone.getTimeZone(String.format(java.util.Locale.US, "GMT%s%02d:00", sign, Math.abs(timezoneOffsetHours)))
         }
+        val cal = Calendar.getInstance(tz)
         cal.timeInMillis = timestampMs
 
         // Standard GT06 BCD Encoding: prevents 6-day offset and hour discrepancies
@@ -280,7 +278,7 @@ object Gt06Protocol {
     fun parseLocationPacket(
         packet: ByteArray,
         timezoneOffsetHours: Int = 5,
-        useDeviceTime: Boolean = true
+        useDeviceTime: Boolean = false
     ): ParsedLocation? {
         if (packet.size < 36 || packet[3] != 0x12.toByte()) return null
         return try {
@@ -290,9 +288,7 @@ object Gt06Protocol {
             val hour = fromBcd(packet[7])
             val min = fromBcd(packet[8])
             val sec = fromBcd(packet[9])
-            val tzLabel = if (useDeviceTime) {
-                "Device Time"
-            } else when (timezoneOffsetHours) {
+            val tzLabel = when (timezoneOffsetHours) {
                 5 -> "PKT (UTC+5)"
                 0 -> "UTC"
                 else -> if (timezoneOffsetHours >= 0) "UTC+$timezoneOffsetHours" else "UTC$timezoneOffsetHours"

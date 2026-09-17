@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -90,6 +91,7 @@ fun AttendanceConfirmationCard(
                 val isSynced = record.isSynced
 
                 // Uncluttered, compact confirmation header
+                val headerColor = if (isSynced) primaryColor else Color(0xFFF59E0B)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -98,14 +100,14 @@ fun AttendanceConfirmationCard(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(primaryColor.copy(alpha = 0.18f))
-                            .border(1.5.dp, primaryColor, CircleShape),
+                            .background(headerColor.copy(alpha = 0.18f))
+                            .border(1.5.dp, headerColor, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Confirmed",
-                            tint = primaryColor,
+                            imageVector = if (isSynced) Icons.Default.Check else Icons.Default.Schedule,
+                            contentDescription = if (isSynced) "Confirmed" else "In Queue",
+                            tint = headerColor,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -114,14 +116,14 @@ fun AttendanceConfirmationCard(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isSynced) "$actionName marked successfully!" else "$actionName recorded offline",
+                            text = if (isSynced) "$actionName marked successfully!" else "$actionName is in Queue",
                             fontSize = 15.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
-                            text = if (isSynced) record.formattedDateTime else "${record.formattedDateTime} • Queued for auto-sync",
-                            fontSize = 12.5.sp,
+                            text = if (isSynced) "${record.formattedDateTime} • Confirmed by server" else "${record.formattedDateTime} • Waiting for connection to mark on server",
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = if (isSynced) VtpOrange else Color(0xFFFBBF24),
                             modifier = Modifier.padding(top = 2.dp)
