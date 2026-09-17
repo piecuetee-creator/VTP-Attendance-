@@ -237,12 +237,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
                 val config = socketConfig.value
 
-                // Anti-backdating protection: prefer GPS satellite atomic clock if system clock deviates by > 3 minutes
-                val punchTime = if (coords.isRealGps && coords.timestamp > 0L && Math.abs(System.currentTimeMillis() - coords.timestamp) > 180_000L) {
-                    coords.timestamp
-                } else {
-                    System.currentTimeMillis()
-                }
+                // Picks device date and time directly
+                val punchTime = System.currentTimeMillis()
 
                 val validationError = repository.validateAttendanceTimestamp(punchTime, isTimeIn = true)
                 if (validationError != null) {
@@ -361,12 +357,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 val resolvedLocName = coords.addressName?.takeIf { it.isNotBlank() } ?: profile.location
                 val config = socketConfig.value
 
-                // Anti-backdating protection: prefer GPS satellite atomic clock if system clock deviates by > 3 minutes
-                val punchTime = if (coords.isRealGps && coords.timestamp > 0L && Math.abs(System.currentTimeMillis() - coords.timestamp) > 180_000L) {
-                    coords.timestamp
-                } else {
-                    System.currentTimeMillis()
-                }
+                // Picks device date and time directly
+                val punchTime = System.currentTimeMillis()
 
                 val validationError = repository.validateAttendanceTimestamp(punchTime, isTimeIn = false)
                 if (validationError != null) {

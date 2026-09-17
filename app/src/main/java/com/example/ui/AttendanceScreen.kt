@@ -215,12 +215,10 @@ fun AttendanceScreen(
         }
     }
 
-    // Live Clock timer anchored to company operational timezone
+    // Live Clock timer displaying device date and time
     var currentTimeString by remember { mutableStateOf("") }
     LaunchedEffect(Unit) {
-        val clockFormat = SimpleDateFormat("EEEE, dd MMMM • hh:mm:ss a", Locale.getDefault()).apply {
-            timeZone = viewModel.getEffectiveTimeZone()
-        }
+        val clockFormat = SimpleDateFormat("EEEE, dd MMMM • hh:mm:ss a", Locale.getDefault())
         while (true) {
             currentTimeString = clockFormat.format(Date())
             delay(1000)

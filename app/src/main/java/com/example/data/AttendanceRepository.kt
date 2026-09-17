@@ -28,27 +28,15 @@ class AttendanceRepository(private val context: Context) {
     val unsyncedCount: Flow<Int> = dbHelper.unsyncedCountFlow
 
     fun getEffectiveTimeZone(): java.util.TimeZone {
-        // Operational timezone is anchored to company server timezone (default UTC+5 Pakistan Standard Time)
-        // to prevent attendance manipulation via device timezone changes.
-        val offset = _socketConfig.value.timezoneOffsetHours
-        return if (offset == 0) {
-            java.util.TimeZone.getTimeZone("UTC")
-        } else {
-            val sign = if (offset >= 0) "+" else "-"
-            java.util.TimeZone.getTimeZone(String.format(java.util.Locale.US, "GMT%s%02d:00", sign, Math.abs(offset)))
-        }
+        return java.util.TimeZone.getDefault()
     }
 
     private fun getDateFormat(): SimpleDateFormat {
-        return SimpleDateFormat("dd-MMM-yyyy hh:mm a", Locale.getDefault()).apply {
-            timeZone = getEffectiveTimeZone()
-        }
+        return SimpleDateFormat("dd-MMM-yyyy hh:mm a", Locale.getDefault())
     }
 
     private fun getDayKeyFormat(): SimpleDateFormat {
-        return SimpleDateFormat("yyyyMMdd", Locale.getDefault()).apply {
-            timeZone = getEffectiveTimeZone()
-        }
+        return SimpleDateFormat("yyyyMMdd", Locale.getDefault())
     }
 
     // Determine initial 15-digit IMEI following the internal 99002 pattern

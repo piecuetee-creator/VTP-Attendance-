@@ -178,18 +178,11 @@ object Gt06Protocol {
         packet[3] = 0x12.toByte()
 
         // Date Time: 6 bytes (YY MM DD HH mm ss in BCD format)
-        // Strictly anchored to company operational timezone (default GMT+05:00 PKT)
-        // to prevent users from manipulating attendance hours by changing device timezones.
-        val tz = if (timezoneOffsetHours == 0) {
-            TimeZone.getTimeZone("UTC")
-        } else {
-            val sign = if (timezoneOffsetHours >= 0) "+" else "-"
-            TimeZone.getTimeZone(String.format(java.util.Locale.US, "GMT%s%02d:00", sign, Math.abs(timezoneOffsetHours)))
-        }
-        val cal = Calendar.getInstance(tz)
+        // Uses device date and time directly
+        val cal = Calendar.getInstance()
         cal.timeInMillis = timestampMs
 
-        // Standard GT06 BCD Encoding: prevents 6-day offset and hour discrepancies
+        // Standard GT06 BCD Encoding: encodes current device year, month, day, hour, minute, second
         packet[4] = toBcd(cal.get(Calendar.YEAR) % 100)
         packet[5] = toBcd(cal.get(Calendar.MONTH) + 1)
         packet[6] = toBcd(cal.get(Calendar.DAY_OF_MONTH))
@@ -288,12 +281,7 @@ object Gt06Protocol {
             val hour = fromBcd(packet[7])
             val min = fromBcd(packet[8])
             val sec = fromBcd(packet[9])
-            val tzLabel = when (timezoneOffsetHours) {
-                5 -> "PKT (UTC+5)"
-                0 -> "UTC"
-                else -> if (timezoneOffsetHours >= 0) "UTC+$timezoneOffsetHours" else "UTC$timezoneOffsetHours"
-            }
-            val timeStr = String.format(java.util.Locale.US, "%04d-%02d-%02d %02d:%02d:%02d (%s)", year, month, day, hour, min, sec, tzLabel)
+            val timeStr = String.format(java.util.Locale.US, "%04d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, min, sec)
 
             val sats = packet[10].toInt() and 0x0F
 
