@@ -179,7 +179,17 @@ class Gt06SocketClient {
             addLog(LogDirection.ERROR, "Could not establish WebSocket handshake with ${config.wsUrl}.")
             addLog(LogDirection.INFO, "Attempting direct TCP connection to ${config.tcpHost}:${config.tcpPort}...")
             ws.cancel()
-            return sendViaRawTcp(config, lat, lon, isTimeIn, speedKmh, courseAngle, satellitesCount, altitudeMeters)
+            return sendViaRawTcp(
+                config = config,
+                lat = lat,
+                lon = lon,
+                isTimeIn = isTimeIn,
+                speedKmh = speedKmh,
+                courseAngle = courseAngle,
+                satellitesCount = satellitesCount,
+                altitudeMeters = altitudeMeters,
+                timestampMs = timestampMs
+            )
         }
 
         try {
