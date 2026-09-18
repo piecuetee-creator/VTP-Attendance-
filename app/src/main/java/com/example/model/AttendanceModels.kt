@@ -39,7 +39,7 @@ data class SocketConfig(
     val imei: String = "990021001045201",
     val useWebSocket: Boolean = true,
     val serverDigits: String = "01",
-    val timezoneOffsetHours: Int = -5, // -5 compensates for the AVL server automatically adding +5 hours
+    val timezoneOffsetHours: Int = 0, // 0 for exact device time; can be set to -5 to compensate server +5h shift
     val useDeviceTime: Boolean = true
 )
 
