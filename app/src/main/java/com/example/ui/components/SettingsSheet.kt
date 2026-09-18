@@ -631,7 +631,7 @@ fun SettingsContent(
                         if (it.length > 2) it.takeLast(2) else it.padStart(2, '0')
                     }.ifBlank { "01" }
 
-                    val cleanImei = if (imei.isNotBlank() && imei != livePatternImei && !isUserLoggedIn) {
+                    val cleanImei = if (imei.isNotBlank() && imei != livePatternImei) {
                         DeviceInfoManager.sanitizeImei(imei)
                     } else {
                         DeviceInfoManager.buildVtpImei(activeCompanyCode, activeEmployeeCode, cleanServer, context)

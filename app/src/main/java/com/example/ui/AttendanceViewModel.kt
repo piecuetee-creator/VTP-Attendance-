@@ -475,7 +475,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 config = config,
                 lat = coords.latitude,
                 lon = coords.longitude,
-                isTimeIn = true
+                isTimeIn = true,
+                timestampMs = System.currentTimeMillis()
             )
         }
     }
