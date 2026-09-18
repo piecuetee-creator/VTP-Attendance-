@@ -94,7 +94,7 @@ class AttendanceRepository(private val context: Context) {
             imei = initialDeviceImei,
             useWebSocket = prefs.getBoolean("use_ws", true),
             serverDigits = savedServerDigits,
-            timezoneOffsetHours = prefs.getInt("tz_offset_hours", 0),
+            timezoneOffsetHours = prefs.getInt("tz_offset_hours", -5).let { if (it == 0) -5 else it },
             useDeviceTime = prefs.getBoolean("use_device_time", true)
         )
     )

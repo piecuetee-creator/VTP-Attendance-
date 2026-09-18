@@ -183,7 +183,7 @@ fun SettingsContent(
     var tcpHost by remember { mutableStateOf(config.tcpHost) }
     var tcpPort by remember { mutableStateOf(config.tcpPort.toString()) }
     var useWs by remember { mutableStateOf(config.useWebSocket) }
-    var timezoneOffset by remember { mutableStateOf(config.timezoneOffsetHours.toString()) }
+    var timezoneOffset by remember { mutableStateOf(if (config.timezoneOffsetHours == 0) "-5" else config.timezoneOffsetHours.toString()) }
 
     var currentTimeMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -540,11 +540,11 @@ fun SettingsContent(
                                 )
                             }
 
-                            if (currentOffset != 0) {
+                            if (currentOffset == -5) {
                                 Text(
-                                    text = "Tap '0h (Direct)' above and click 'Save Changes' if you want GT06 Packet Time to be identical to your Device Time.",
+                                    text = "Offset of -5h is applied to the GT06 packet timestamp.",
                                     fontSize = 10.sp,
-                                    color = VtpOrangeDark,
+                                    color = Color(0xFF2E7D32),
                                     fontWeight = FontWeight.Medium
                                 )
                             }
