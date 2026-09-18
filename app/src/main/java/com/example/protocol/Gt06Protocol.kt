@@ -178,12 +178,11 @@ object Gt06Protocol {
         packet[3] = 0x12.toByte()
 
         // Date Time: 6 bytes (YY MM DD HH mm ss in BCD format)
-        // Uses device date and time directly (no UTC conversion or timezone shift).
-        // The exact digits of device year, month, day, hour, minute, second are sent as-is.
+        // Adjust timestamp by timezoneOffsetHours if specified (e.g. -5 to cancel server's automatic +5 hours addition).
         val cal = Calendar.getInstance()
-        cal.timeInMillis = timestampMs
+        cal.timeInMillis = timestampMs + (timezoneOffsetHours * 3600000L)
 
-        // Standard GT06 BCD Encoding using exact device date and time
+        // Standard GT06 BCD Encoding
         packet[4] = toBcd(cal.get(Calendar.YEAR) % 100)
         packet[5] = toBcd(cal.get(Calendar.MONTH) + 1)
         packet[6] = toBcd(cal.get(Calendar.DAY_OF_MONTH))

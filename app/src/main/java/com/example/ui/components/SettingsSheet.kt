@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,7 +50,9 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -180,6 +183,15 @@ fun SettingsContent(
     var tcpHost by remember { mutableStateOf(config.tcpHost) }
     var tcpPort by remember { mutableStateOf(config.tcpPort.toString()) }
     var useWs by remember { mutableStateOf(config.useWebSocket) }
+    var timezoneOffset by remember { mutableStateOf(config.timezoneOffsetHours.toString()) }
+
+    var currentTimeMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTimeMs = System.currentTimeMillis()
+            kotlinx.coroutines.delay(1000)
+        }
+    }
 
     var saveConfirmation by remember { mutableStateOf(false) }
 
@@ -339,6 +351,218 @@ fun SettingsContent(
                         )
                     }
                 )
+
+                // Timezone Offset Adjustment (Server Compensation)
+                val currentOffset = timezoneOffset.toIntOrNull() ?: -5
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "Timestamp Mode (Server Compensation)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = when (currentOffset) {
+                            -5 -> "Device time -5 hrs sent. Cancels the server's automatic +5 hrs shift so server logs your EXACT device time."
+                            0 -> "Device local time sent as-is (0h offset). Use this if server does not shift time."
+                            else -> "Offset: ${if (currentOffset > 0) "+$currentOffset" else "$currentOffset"} hours applied to packet."
+                        },
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(-5, 0).forEach { offsetVal ->
+                            val isSelected = currentOffset == offsetVal
+                            val label = when (offsetVal) {
+                                -5 -> "-5h (Compensate Server +5h)"
+                                else -> "0h (Direct Device Clock)"
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) VtpOrange else MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(
+                                        1.dp,
+                                        if (isSelected) VtpOrangeDark else MaterialTheme.colorScheme.outlineVariant,
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable {
+                                        timezoneOffset = offsetVal.toString()
+                                    }
+                                    .padding(vertical = 10.dp, horizontal = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+
+                    // Live Time Comparison Card (Testing Diagnostic)
+                    val deviceTimeStr = remember(currentTimeMs) {
+                        java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date(currentTimeMs))
+                    }
+                    val packetSentTimeStr = remember(currentTimeMs, currentOffset) {
+                        java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+                            .format(java.util.Date(currentTimeMs + (currentOffset * 3600000L)))
+                    }
+                    val expectedServerLogTimeStr = remember(currentTimeMs, currentOffset) {
+                        // Server adds +5h to incoming packet
+                        java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+                            .format(java.util.Date(currentTimeMs + (currentOffset * 3600000L) + 5 * 3600000L))
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Schedule,
+                                        contentDescription = null,
+                                        tint = VtpOrange,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "Live Time Comparison (Test Mode)",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(if (expectedServerLogTimeStr == deviceTimeStr) Color(0xFF2E7D32) else Color(0xFFC62828))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = if (expectedServerLogTimeStr == deviceTimeStr) "SYNCED" else "OFFSET DETECTED",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            // Comparison Row 1: Device Local Clock
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Device Local Time",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Your phone's actual clock",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = deviceTimeStr,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+
+                            // Comparison Row 2: Encoded Packet Timestamp (What travels over socket)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "GT06 Packet Time",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Encoded into BCD (Offset: ${if (currentOffset > 0) "+$currentOffset" else "$currentOffset"}h)",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = packetSentTimeStr,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Medium,
+                                    color = VtpOrangeDark
+                                )
+                            }
+
+                            // Comparison Row 3: Final Server Logged Time
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Expected Server Time",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "After server adds +5h automatic shift",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = expectedServerLogTimeStr,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (expectedServerLogTimeStr == deviceTimeStr) Color(0xFF2E7D32) else Color(0xFFC62828)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -644,7 +868,8 @@ fun SettingsContent(
                             tcpHost = tcpHost.trim(),
                             tcpPort = port,
                             useWebSocket = useWs,
-                            serverDigits = cleanServer
+                            serverDigits = cleanServer,
+                            timezoneOffsetHours = timezoneOffset.toIntOrNull() ?: -5
                         )
                     )
                     // Profile credentials (name, desig, loc, codes) remain locked as entered at login,

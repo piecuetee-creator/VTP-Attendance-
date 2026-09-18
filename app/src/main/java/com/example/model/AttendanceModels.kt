@@ -39,8 +39,8 @@ data class SocketConfig(
     val imei: String = "990021001045201",
     val useWebSocket: Boolean = true,
     val serverDigits: String = "01",
-    val timezoneOffsetHours: Int = 5, // Default UTC+5 for Karachi / Pakistan Standard Time
-    val useDeviceTime: Boolean = true // Uses exact device local time to prevent tampering
+    val timezoneOffsetHours: Int = -5, // -5 compensates for the AVL server automatically adding +5 hours
+    val useDeviceTime: Boolean = true
 )
 
 data class AttendanceRecord(

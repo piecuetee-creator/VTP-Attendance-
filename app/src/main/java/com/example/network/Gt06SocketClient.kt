@@ -230,14 +230,15 @@ class Gt06SocketClient {
             val angDisplay = parsed?.let { "${it.courseAngle}° (${it.cardinalDirection})" } ?: "${courseAngle.toInt()}°"
             val satsDisplay = "${parsed?.satellites ?: satellitesCount} Sats"
             val timeDisplay = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestampMs))
+            val packetTime = parsed?.utcTime ?: timeDisplay
+            val timeLabel = if (packetTime != timeDisplay) "$timeDisplay (Packet: $packetTime)" else timeDisplay
 
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
                 LogDirection.TX,
-                "TX GT06 Location (0x12) | Time: $timeDisplay | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
+                "TX GT06 Location (0x12) | Time: $timeLabel | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
                 locHex
             )
-
             ws.send(locationPacket.toByteString())
 
             kotlinx.coroutines.delay(500)
@@ -333,14 +334,15 @@ class Gt06SocketClient {
             val angDisplay = parsed?.let { "${it.courseAngle}° (${it.cardinalDirection})" } ?: "${courseAngle.toInt()}°"
             val satsDisplay = "${parsed?.satellites ?: satellitesCount} Sats"
             val timeDisplay = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestampMs))
+            val packetTime = parsed?.utcTime ?: timeDisplay
+            val timeLabel = if (packetTime != timeDisplay) "$timeDisplay (Packet: $packetTime)" else timeDisplay
 
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
                 LogDirection.TX,
-                "TX GT06 Location (0x12) | Time: $timeDisplay | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
+                "TX GT06 Location (0x12) | Time: $timeLabel | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
                 locHex
             )
-
             outStream.write(locationPacket)
             outStream.flush()
 
