@@ -178,11 +178,13 @@ object Gt06Protocol {
         packet[3] = 0x12.toByte()
 
         // Date Time: 6 bytes (YY MM DD HH mm ss in BCD format)
-        // Uses device date and time directly
-        val cal = Calendar.getInstance()
+        // Concox GT06 standard specifies Greenwich Mean Time (UTC).
+        // The AVL server receives this UTC timestamp and applies the account/device timezone (e.g. UTC+5 PKT)
+        // to produce the CDR record. Encoding in UTC guarantees the server CDR matches device date & time.
+        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         cal.timeInMillis = timestampMs
 
-        // Standard GT06 BCD Encoding: encodes current device year, month, day, hour, minute, second
+        // Standard GT06 BCD Encoding in UTC
         packet[4] = toBcd(cal.get(Calendar.YEAR) % 100)
         packet[5] = toBcd(cal.get(Calendar.MONTH) + 1)
         packet[6] = toBcd(cal.get(Calendar.DAY_OF_MONTH))
@@ -281,7 +283,7 @@ object Gt06Protocol {
             val hour = fromBcd(packet[7])
             val min = fromBcd(packet[8])
             val sec = fromBcd(packet[9])
-            val timeStr = String.format(java.util.Locale.US, "%04d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, min, sec)
+            val timeStr = String.format(java.util.Locale.US, "%04d-%02d-%02d %02d:%02d:%02d UTC", year, month, day, hour, min, sec)
 
             val sats = packet[10].toInt() and 0x0F
 

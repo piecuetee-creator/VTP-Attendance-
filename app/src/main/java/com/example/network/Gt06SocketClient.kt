@@ -229,7 +229,7 @@ class Gt06SocketClient {
             val spdDisplay = parsed?.let { "${it.speedKmh} km/h" } ?: "${speedKmh.toInt()} km/h"
             val angDisplay = parsed?.let { "${it.courseAngle}° (${it.cardinalDirection})" } ?: "${courseAngle.toInt()}°"
             val satsDisplay = "${parsed?.satellites ?: satellitesCount} Sats"
-            val timeDisplay = parsed?.utcTime ?: if (config.useDeviceTime) "Device Time" else "UTC+${config.timezoneOffsetHours}"
+            val timeDisplay = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestampMs))
 
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
@@ -332,7 +332,7 @@ class Gt06SocketClient {
             val spdDisplay = parsed?.let { "${it.speedKmh} km/h" } ?: "${speedKmh.toInt()} km/h"
             val angDisplay = parsed?.let { "${it.courseAngle}° (${it.cardinalDirection})" } ?: "${courseAngle.toInt()}°"
             val satsDisplay = "${parsed?.satellites ?: satellitesCount} Sats"
-            val timeDisplay = parsed?.utcTime ?: if (config.useDeviceTime) "Device Time" else "UTC+${config.timezoneOffsetHours}"
+            val timeDisplay = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestampMs))
 
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
