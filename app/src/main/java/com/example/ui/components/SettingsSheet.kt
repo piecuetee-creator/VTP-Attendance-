@@ -353,7 +353,7 @@ fun SettingsContent(
                 )
 
                 // Timezone Offset Adjustment (Server Compensation)
-                val currentOffset = timezoneOffset.toIntOrNull() ?: 0
+                val currentOffset = timezoneOffset.toIntOrNull() ?: -5
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -470,11 +470,11 @@ fun SettingsContent(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(4.dp))
-                                        .background(if (isPacketEqualDevice) Color(0xFF2E7D32) else Color(0xFFE65100))
+                                        .background(if (currentOffset == -5) Color(0xFF2E7D32) else Color(0xFFE65100))
                                         .padding(horizontal = 8.dp, vertical = 3.dp)
                                 ) {
                                     Text(
-                                        text = if (isPacketEqualDevice) "PACKET = DEVICE" else "OFFSET: ${if (currentOffset > 0) "+$currentOffset" else "$currentOffset"}H",
+                                        text = if (currentOffset == -5) "-5H ACTIVE" else "OFFSET: ${if (currentOffset > 0) "+$currentOffset" else "$currentOffset"}H",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White
@@ -536,7 +536,7 @@ fun SettingsContent(
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isPacketEqualDevice) Color(0xFF2E7D32) else VtpOrangeDark
+                                    color = if (currentOffset == -5) Color(0xFF2E7D32) else VtpOrangeDark
                                 )
                             }
 
@@ -857,7 +857,7 @@ fun SettingsContent(
                             tcpPort = port,
                             useWebSocket = useWs,
                             serverDigits = cleanServer,
-                            timezoneOffsetHours = timezoneOffset.toIntOrNull() ?: 0
+                            timezoneOffsetHours = timezoneOffset.toIntOrNull() ?: -5
                         )
                     )
                     // Profile credentials (name, desig, loc, codes) remain locked as entered at login,
