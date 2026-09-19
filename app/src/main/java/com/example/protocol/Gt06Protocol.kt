@@ -213,6 +213,7 @@ object Gt06Protocol {
         packet[19] = (clampedSpeed and 0xFF).toByte()
 
         // Course & Status flags (2 bytes / 16 bits):
+        // Bit 15: ACC / Ignition status (1 = ON / high, 0 = OFF / low)
         // Bit 14: GPS tracked / positioned (1)
         // Bit 12: GPS valid (1)
         // Bit 11: 1 if West longitude, 0 if East longitude
@@ -221,6 +222,9 @@ object Gt06Protocol {
         var statusFlags = 0x5400 // GPS tracked (0x4000) + GPS valid (0x1000) + North (0x0400)
         if (lon < 0) statusFlags = statusFlags or 0x0800 // West longitude
         if (lat < 0) statusFlags = statusFlags and 0x0400.inv() // South latitude
+        if (isIgnitionOn) {
+            statusFlags = statusFlags or 0x8000 // Bit 15: ACC 1 / Ignition ON (Time In)
+        }
 
         val clampedAngle = ((courseAngle % 360f + 360f) % 360f).toInt() and 0x03FF
         val courseFlags = (statusFlags and 0xFC00) or clampedAngle
@@ -254,6 +258,65 @@ object Gt06Protocol {
         return packet
     }
 
+    /**
+     * Builds a GT06 Status / Heartbeat Packet (0x13).
+     * Transmits terminal information including ACC / ignition status:
+     * Time In = ACC 1 (Ignition ON), Time Out = ACC 0 (Ignition OFF).
+     *
+     * @param isIgnitionOn true for Ignition ON (ACC 1), false for Ignition OFF (ACC 0)
+     * @param serialNo Information serial number
+     * Total length: 15 bytes
+     */
+    fun buildStatusPacket(isIgnitionOn: Boolean, serialNo: Int): ByteArray {
+        val packet = ByteArray(15)
+        // Start bits
+        packet[0] = 0x78.toByte()
+        packet[1] = 0x78.toByte()
+        // Length (0x0A = 10 bytes: proto 1 + info 5 + serial 2 + CRC 2)
+        packet[2] = 0x0A.toByte()
+        // Protocol: 0x13 (Status / Heartbeat)
+        packet[3] = 0x13.toByte()
+
+        // Terminal Information Byte:
+        // Bit 7: Oil and electricity connected (0)
+        // Bit 6: GPS tracking is on (1, 0x40)
+        // Bits 5..3: Normal / No alarm (000)
+        // Bit 2: Charge status (1, 0x04)
+        // Bit 1: ACC status (1 = Ignition ON / ACC 1, 0 = Ignition OFF / ACC 0, 0x02)
+        // Bit 0: Defense status (1, 0x01)
+        val terminalInfo = if (isIgnitionOn) {
+            (0x40 or 0x04 or 0x02 or 0x01).toByte() // 0x47: ACC 1 / Ignition ON (Time In)
+        } else {
+            (0x40 or 0x04 or 0x01).toByte()        // 0x45: ACC 0 / Ignition OFF (Time Out)
+        }
+        packet[4] = terminalInfo
+
+        // Voltage level (1 byte): 0x06 (High voltage / full battery)
+        packet[5] = 0x06.toByte()
+
+        // GSM signal level (1 byte): 0x04 (Maximum signal strength)
+        packet[6] = 0x04.toByte()
+
+        // Alarm / Language (2 bytes): 0x00 0x01 (Normal, English)
+        packet[7] = 0x00.toByte()
+        packet[8] = 0x01.toByte()
+
+        // Information serial number (2 bytes)
+        packet[9] = ((serialNo ushr 8) and 0xFF).toByte()
+        packet[10] = (serialNo and 0xFF).toByte()
+
+        // CRC-16 (computed from byte 2 to 10, length 9 bytes)
+        val crc = crc16(packet, 2, 9)
+        packet[11] = ((crc ushr 8) and 0xFF).toByte()
+        packet[12] = (crc and 0xFF).toByte()
+
+        // Stop bits
+        packet[13] = 0x0D.toByte()
+        packet[14] = 0x0A.toByte()
+
+        return packet
+    }
+
     data class ParsedLocation(
         val latitude: Double,
         val longitude: Double,
@@ -265,7 +328,8 @@ object Gt06Protocol {
         val isNorth: Boolean,
         val isEast: Boolean,
         val serialNo: Int,
-        val utcTime: String
+        val utcTime: String,
+        val isIgnitionOn: Boolean = false
     )
 
     fun parseLocationPacket(
@@ -306,6 +370,7 @@ object Gt06Protocol {
             val isWest = (courseFlags and 0x0800) != 0
             val isNorth = (courseFlags and 0x0400) != 0
             val isTracked = (courseFlags and 0x4000) != 0
+            val isIgnition = (courseFlags and 0x8000) != 0
 
             val directions = arrayOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
             val cardIdx = (((angle % 360 + 360) % 360 + 11.25f) / 22.5f).toInt() % 16
@@ -323,7 +388,8 @@ object Gt06Protocol {
                 isNorth = isNorth,
                 isEast = !isWest,
                 serialNo = serial,
-                utcTime = timeStr
+                utcTime = timeStr,
+                isIgnitionOn = isIgnition
             )
         } catch (_: Exception) {
             null

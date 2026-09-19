@@ -2,6 +2,7 @@ package com.example
 
 import com.example.protocol.Gt06Protocol
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -79,6 +80,52 @@ class ExampleUnitTest {
         val hourBcd = packet[7]
         val hour = Gt06Protocol.fromBcd(hourBcd)
         assertEquals(10, hour) // 15:30 minus 5 hours = 10:30
+    }
+
+    @Test
+    fun buildLocationPacket_ignitionStatusEncodedCorrectly() {
+        // Time In: isIgnitionOn = true -> ACC 1
+        val packetTimeIn = Gt06Protocol.buildLocationPacket(
+            lat = 24.8607,
+            lon = 67.0011,
+            isIgnitionOn = true,
+            serialNo = 1
+        )
+        val parsedTimeIn = Gt06Protocol.parseLocationPacket(packetTimeIn)
+        assertNotNull(parsedTimeIn)
+        assertTrue(parsedTimeIn!!.isIgnitionOn)
+
+        // Time Out: isIgnitionOn = false -> ACC 0
+        val packetTimeOut = Gt06Protocol.buildLocationPacket(
+            lat = 24.8607,
+            lon = 67.0011,
+            isIgnitionOn = false,
+            serialNo = 2
+        )
+        val parsedTimeOut = Gt06Protocol.parseLocationPacket(packetTimeOut)
+        assertNotNull(parsedTimeOut)
+        assertFalse(parsedTimeOut!!.isIgnitionOn)
+    }
+
+    @Test
+    fun buildStatusPacket_timeInAndOutEncodeAccCorrectly() {
+        // Time In: isIgnitionOn = true -> ACC 1 (bit 1 is 1)
+        val statusTimeIn = Gt06Protocol.buildStatusPacket(isIgnitionOn = true, serialNo = 1)
+        assertEquals(15, statusTimeIn.size)
+        assertEquals(0x78.toByte(), statusTimeIn[0])
+        assertEquals(0x78.toByte(), statusTimeIn[1])
+        assertEquals(0x0A.toByte(), statusTimeIn[2]) // length
+        assertEquals(0x13.toByte(), statusTimeIn[3]) // protocol 0x13
+        val terminalInfoTimeIn = statusTimeIn[4].toInt() and 0xFF
+        assertTrue((terminalInfoTimeIn and 0x02) != 0) // Bit 1 = 1 (ACC ON)
+        assertEquals(0x47, terminalInfoTimeIn)
+
+        // Time Out: isIgnitionOn = false -> ACC 0 (bit 1 is 0)
+        val statusTimeOut = Gt06Protocol.buildStatusPacket(isIgnitionOn = false, serialNo = 2)
+        assertEquals(15, statusTimeOut.size)
+        val terminalInfoTimeOut = statusTimeOut[4].toInt() and 0xFF
+        assertEquals(0, terminalInfoTimeOut and 0x02) // Bit 1 = 0 (ACC OFF)
+        assertEquals(0x45, terminalInfoTimeOut)
     }
 
     @Test

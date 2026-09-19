@@ -232,14 +232,26 @@ class Gt06SocketClient {
             val timeDisplay = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestampMs))
             val packetTime = parsed?.utcTime ?: timeDisplay
             val timeLabel = if (packetTime != timeDisplay) "$timeDisplay (Packet: $packetTime)" else timeDisplay
+            val accLabel = if (isTimeIn) "ACC: 1 (Ignition ON)" else "ACC: 0 (Ignition OFF)"
 
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
                 LogDirection.TX,
-                "TX GT06 Location (0x12) | Time: $timeLabel | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
+                "TX GT06 Location (0x12) | $accLabel | Time: $timeLabel | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
                 locHex
             )
             ws.send(locationPacket.toByteString())
+
+            // 3. Send GT06 Status / Heartbeat Packet (0x13) to explicitly ensure ACC / Ignition status is transmitted
+            val serialStatus = serialCounter.getAndIncrement() and 0xFFFF
+            val statusPacket = Gt06Protocol.buildStatusPacket(isIgnitionOn = isTimeIn, serialNo = serialStatus)
+            val statusHex = Gt06Protocol.bytesToHex(statusPacket)
+            addLog(
+                LogDirection.TX,
+                "TX GT06 Status (0x13) | $accLabel | Serial: $serialStatus (${statusPacket.size}B):",
+                statusHex
+            )
+            ws.send(statusPacket.toByteString())
 
             kotlinx.coroutines.delay(500)
             _connectionStatus.value = ConnectionStatus.SUCCESS
@@ -336,14 +348,27 @@ class Gt06SocketClient {
             val timeDisplay = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(timestampMs))
             val packetTime = parsed?.utcTime ?: timeDisplay
             val timeLabel = if (packetTime != timeDisplay) "$timeDisplay (Packet: $packetTime)" else timeDisplay
+            val accLabel = if (isTimeIn) "ACC: 1 (Ignition ON)" else "ACC: 0 (Ignition OFF)"
 
             _connectionStatus.value = ConnectionStatus.SENDING_LOCATION
             addLog(
                 LogDirection.TX,
-                "TX GT06 Location (0x12) | Time: $timeLabel | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
+                "TX GT06 Location (0x12) | $accLabel | Time: $timeLabel | Speed: $spdDisplay | Angle: $angDisplay | $satsDisplay | Lat: ${String.format(java.util.Locale.US, "%.5f", lat)}, Lon: ${String.format(java.util.Locale.US, "%.5f", lon)} (${locationPacket.size}B):",
                 locHex
             )
             outStream.write(locationPacket)
+            outStream.flush()
+
+            // 3. Build and send GT06 Status / Heartbeat Packet (0x13) to explicitly ensure ACC / Ignition status is transmitted
+            val serialStatus = serialCounter.getAndIncrement() and 0xFFFF
+            val statusPacket = Gt06Protocol.buildStatusPacket(isIgnitionOn = isTimeIn, serialNo = serialStatus)
+            val statusHex = Gt06Protocol.bytesToHex(statusPacket)
+            addLog(
+                LogDirection.TX,
+                "TX GT06 Status (0x13) | $accLabel | Serial: $serialStatus (${statusPacket.size}B):",
+                statusHex
+            )
+            outStream.write(statusPacket)
             outStream.flush()
 
             // Read possible location ACK
