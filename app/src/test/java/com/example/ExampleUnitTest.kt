@@ -61,36 +61,24 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun buildLocationPacket_karachiTimezoneOffsetMatchesPlus5() {
-        // Fixed timestamp: 2026-09-14 12:00:00 UTC (1789387200000 ms)
-        val calUtc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
-            set(2026, java.util.Calendar.SEPTEMBER, 14, 12, 0, 0)
+    fun buildLocationPacket_timestampAppliesMinus5HoursShift() {
+        val cal = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.SEPTEMBER, 14, 15, 30, 0)
         }
-        val timestamp = calUtc.timeInMillis
+        val timestamp = cal.timeInMillis
 
-        // Build with default UTC+5 (Karachi)
-        val packetKarachi = Gt06Protocol.buildLocationPacket(
+        // Build packet: logic goes back -5 hours from given timestamp
+        val packet = Gt06Protocol.buildLocationPacket(
             lat = 24.8607,
             lon = 67.0011,
             isIgnitionOn = true,
             serialNo = 1,
-            timestampMs = timestamp,
-            timezoneOffsetHours = 5
+            timestampMs = timestamp
         )
-        val hourKarachi = packetKarachi[7].toInt() and 0xFF
-        assertEquals(17, hourKarachi) // 12 + 5 = 17:00 (Karachi time)
-
-        // Build with UTC (0 offset)
-        val packetUtc = Gt06Protocol.buildLocationPacket(
-            lat = 24.8607,
-            lon = 67.0011,
-            isIgnitionOn = true,
-            serialNo = 1,
-            timestampMs = timestamp,
-            timezoneOffsetHours = 0
-        )
-        val hourUtc = packetUtc[7].toInt() and 0xFF
-        assertEquals(12, hourUtc) // 12:00 (UTC time)
+        // Hour in BCD at index 7: 15 - 5 = 10 -> BCD 0x10 = 16 or fromBcd
+        val hourBcd = packet[7]
+        val hour = Gt06Protocol.fromBcd(hourBcd)
+        assertEquals(10, hour) // 15:30 minus 5 hours = 10:30
     }
 
     @Test

@@ -178,9 +178,9 @@ object Gt06Protocol {
         packet[3] = 0x12.toByte()
 
         // Date Time: 6 bytes (YY MM DD HH mm ss in BCD format)
-        // Adjust timestamp by timezoneOffsetHours if specified (e.g. -5 to cancel server's automatic +5 hours addition).
+        // Adjust timestamp by -5 hours (5 hours backwards) to match server expectation
         val cal = Calendar.getInstance()
-        cal.timeInMillis = timestampMs + (timezoneOffsetHours * 3600000L)
+        cal.timeInMillis = timestampMs - (5 * 3600000L)
 
         // Standard GT06 BCD Encoding
         packet[4] = toBcd(cal.get(Calendar.YEAR) % 100)
