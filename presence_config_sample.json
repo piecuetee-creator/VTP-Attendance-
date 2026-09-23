@@ -1,0 +1,16 @@
+{
+  "server": {
+    "tcp_host": "avl.vtps.org",
+    "tcp_port": 5200,
+    "ws_url": "ws://avl.vtps.org:5200",
+    "use_websocket": true
+  },
+  "protocol": {
+    "server_digits": "01",
+    "timezone_offset_hours": -5
+  },
+  "app": {
+    "company_name": "Demo Tracking Co",
+    "hide_settings_ui": true
+  }
+}

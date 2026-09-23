@@ -104,6 +104,7 @@ fun CustomerAuthScreen(
     onLogout: (() -> Unit)? = null,
     onNavigateToAttendance: (() -> Unit)? = null,
     onClose: (() -> Unit)? = null,
+    onAdminConfigClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -257,14 +258,29 @@ fun CustomerAuthScreen(
                     .padding(top = 40.dp, bottom = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Presence P Logo
+                // Presence P Logo (Admin secret gesture: 7 rapid taps within 2.5s)
+                var logoTapCount by remember { mutableStateOf(0) }
+                var lastTapTimestamp by remember { mutableStateOf(0L) }
                 Box(
                     modifier = Modifier
                         .size(86.dp)
                         .shadow(12.dp, RoundedCornerShape(22.dp), ambientColor = Color.Black.copy(alpha = 0.35f))
                         .clip(RoundedCornerShape(22.dp))
                         .background(Color.White)
-                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(22.dp)),
+                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(22.dp))
+                        .clickable {
+                            val now = System.currentTimeMillis()
+                            if (now - lastTapTimestamp > 2500L) {
+                                logoTapCount = 1
+                            } else {
+                                logoTapCount++
+                            }
+                            lastTapTimestamp = now
+                            if (logoTapCount >= 7) {
+                                logoTapCount = 0
+                                onAdminConfigClick?.invoke()
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Image(

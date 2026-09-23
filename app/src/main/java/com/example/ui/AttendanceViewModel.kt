@@ -108,6 +108,14 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 .build()
             connectivityManager?.registerNetworkCallback(request, networkCallback)
         } catch (_: Exception) {}
+
+        // Silent startup check: If a presence_config.json was placed or pushed via FOTA, apply it automatically
+        try {
+            val autoConfigStr = com.example.util.JsonConfigManager.findLocalConfigFile(application)
+            if (!autoConfigStr.isNullOrBlank()) {
+                loadConfigFromJson(autoConfigStr)
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onCleared() {
@@ -560,6 +568,41 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         socketClient.addLog(
             LogDirection.INFO,
             "Employee Profile updated: ${profile.name} (ID: ${profile.employeeId})"
+        )
+    }
+
+    val hideSettingsUi: StateFlow<Boolean> = repository.hideSettingsUi
+
+    fun setHideSettingsUi(hidden: Boolean) {
+        repository.setHideSettingsUi(hidden)
+    }
+
+    fun loadConfigFromJson(jsonStr: String): Pair<Boolean, String> {
+        return try {
+            val appConfig = com.example.util.JsonConfigManager.parseJsonConfig(jsonStr, socketConfig.value)
+            repository.applyJsonConfig(
+                newSocketConfig = appConfig.socketConfig,
+                hideSettings = appConfig.hideSettingsUi,
+                companyCode = appConfig.companyCode,
+                employeeCode = appConfig.employeeCode,
+                serverDigits = appConfig.serverDigits
+            )
+            socketClient.addLog(
+                LogDirection.INFO,
+                "JSON Config applied successfully: Host=${appConfig.socketConfig.tcpHost}, Port=${appConfig.socketConfig.tcpPort}, WS=${appConfig.socketConfig.useWebSocket}, HideSettings=${appConfig.hideSettingsUi}"
+            )
+            Pair(true, "Configuration imported successfully! Connected to port ${appConfig.socketConfig.tcpPort}")
+        } catch (e: Exception) {
+            val err = "Failed to parse JSON config: ${e.message ?: "Invalid format"}"
+            socketClient.addLog(LogDirection.ERROR, err)
+            Pair(false, err)
+        }
+    }
+
+    fun exportCurrentConfigJson(): String {
+        return com.example.util.JsonConfigManager.serializeConfigToJson(
+            config = socketConfig.value,
+            hideSettings = hideSettingsUi.value
         )
     }
 

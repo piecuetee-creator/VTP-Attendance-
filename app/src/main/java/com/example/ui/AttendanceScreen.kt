@@ -133,6 +133,7 @@ fun AttendanceScreen(
     val authState by viewModel.authState.collectAsStateWithLifecycle()
     val unsyncedCount by viewModel.unsyncedCount.collectAsStateWithLifecycle()
     val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
+    val hideSettingsUi by viewModel.hideSettingsUi.collectAsStateWithLifecycle()
 
     val timeInRec = lastTimeIn
     val timeOutRec = lastTimeOut
@@ -153,6 +154,8 @@ fun AttendanceScreen(
 
     var showConsoleSheet by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
+    var showAdminPinDialog by remember { mutableStateOf(false) }
+    var showJsonConfigDialog by remember { mutableStateOf(false) }
     var showProfileDialog by remember { mutableStateOf(false) }
     var showLocationPicker by remember { mutableStateOf(false) }
     var showLoginSheet by remember { mutableStateOf(false) }
@@ -291,6 +294,7 @@ fun AttendanceScreen(
                     }
                 },
                 onClose = if (isUserLoggedIn) { { showLoginSheet = false } } else null,
+                onAdminConfigClick = { showAdminPinDialog = true },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
@@ -345,16 +349,8 @@ fun AttendanceScreen(
                                 }
                             )
                         }
-                        DropdownMenuItem(
-                            text = { Text("Settings & Connection") },
-                            leadingIcon = {
-                                Icon(Icons.Default.Settings, contentDescription = null, tint = VtpOrange)
-                            },
-                            onClick = {
-                                showOptionsMenu = false
-                                showSettingsSheet = true
-                            }
-                        )
+                        // Note: Settings are completely removed from normal client UI.
+                        // Admin access is exclusively via the 7-tap logo PIN authorization.
                         DropdownMenuItem(
                             text = { Text("Console Logs") },
                             leadingIcon = {
@@ -403,14 +399,29 @@ fun AttendanceScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    // Presence P Logo
+                    // Presence P Logo (Admin secret gesture: 7 rapid taps within 2.5s opens Admin PIN check)
+                    var landingLogoTapCount by remember { mutableStateOf(0) }
+                    var landingLastTapTimestamp by remember { mutableStateOf(0L) }
                     Box(
                         modifier = Modifier
                             .size(86.dp)
                             .shadow(12.dp, RoundedCornerShape(22.dp), ambientColor = Color.Black.copy(alpha = 0.35f))
                             .clip(RoundedCornerShape(22.dp))
                             .background(Color.White)
-                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(22.dp)),
+                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(22.dp))
+                            .clickable {
+                                val now = System.currentTimeMillis()
+                                if (now - landingLastTapTimestamp > 2500L) {
+                                    landingLogoTapCount = 1
+                                } else {
+                                    landingLogoTapCount++
+                                }
+                                landingLastTapTimestamp = now
+                                if (landingLogoTapCount >= 7) {
+                                    landingLogoTapCount = 0
+                                    showAdminPinDialog = true
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
@@ -631,6 +642,37 @@ fun AttendanceScreen(
             },
             onDismiss = { showSettingsSheet = false },
             sheetState = settingsSheetState
+        )
+    }
+
+    if (showAdminPinDialog) {
+        com.example.ui.components.AdminPinDialog(
+            onPinCorrect = {
+                showAdminPinDialog = false
+                showJsonConfigDialog = true
+            },
+            onDismiss = {
+                showAdminPinDialog = false
+            }
+        )
+    }
+
+    if (showJsonConfigDialog) {
+        com.example.ui.components.JsonConfigDialog(
+            currentConfig = socketConfig,
+            hideSettingsUi = hideSettingsUi,
+            onApplyJson = { jsonStr ->
+                viewModel.loadConfigFromJson(jsonStr)
+            },
+            onToggleHideSettings = { hidden ->
+                viewModel.setHideSettingsUi(hidden)
+            },
+            onOpenFullSettings = {
+                showSettingsSheet = true
+            },
+            onDismiss = {
+                showJsonConfigDialog = false
+            }
         )
     }
 }

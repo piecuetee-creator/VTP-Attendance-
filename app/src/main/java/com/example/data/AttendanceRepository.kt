@@ -483,6 +483,38 @@ class AttendanceRepository(private val context: Context) {
         }
     }
 
+    private val _hideSettingsUi = MutableStateFlow(
+        prefs.getBoolean("hide_settings_ui", false)
+    )
+    val hideSettingsUi = _hideSettingsUi.asStateFlow()
+
+    fun setHideSettingsUi(hidden: Boolean) {
+        _hideSettingsUi.value = hidden
+        prefs.edit().putBoolean("hide_settings_ui", hidden).apply()
+    }
+
+    fun applyJsonConfig(
+        newSocketConfig: SocketConfig,
+        hideSettings: Boolean? = null,
+        companyCode: String? = null,
+        employeeCode: String? = null,
+        serverDigits: String? = null
+    ) {
+        updateSocketConfig(newSocketConfig)
+        if (hideSettings != null) {
+            setHideSettingsUi(hideSettings)
+        }
+        if (!companyCode.isNullOrBlank() || !employeeCode.isNullOrBlank() || !serverDigits.isNullOrBlank()) {
+            val cur = _employeeProfile.value
+            val comp = (companyCode ?: cur.companyCode).filter { it.isDigit() }
+            val emp = (employeeCode ?: cur.employeeCode).filter { it.isDigit() }
+            val srv = (serverDigits ?: cur.serverDigits).filter { it.isDigit() }.padStart(2, '0').takeLast(2)
+            if (comp.isNotBlank() && emp.isNotBlank()) {
+                loginWithDetails(comp, emp, cur.name, cur.designation, cur.location, srv)
+            }
+        }
+    }
+
     fun updateSocketConfig(config: SocketConfig) {
         val sanitizedImei = DeviceInfoManager.sanitizeImei(config.imei)
         val updatedConfig = config.copy(imei = sanitizedImei)

@@ -6,7 +6,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class ExampleUnitTest {
 
     @Test
@@ -142,6 +145,50 @@ class ExampleUnitTest {
         val imei3 = com.example.util.DeviceInfoManager.buildVtpImei("1001", "1234", "02")
         assertEquals(15, imei3.length)
         assertEquals("990021001123402", imei3)
+    }
+
+    @Test
+    fun jsonConfigManager_parseSampleAndSerialize_preservesSettings() {
+        val sampleJson = com.example.util.JsonConfigManager.getSampleConfigJson()
+        val baseConfig = com.example.model.SocketConfig()
+        val parsed = com.example.util.JsonConfigManager.parseJsonConfig(sampleJson, baseConfig)
+
+        assertEquals("avl.vtps.org", parsed.socketConfig.tcpHost)
+        assertEquals(5200, parsed.socketConfig.tcpPort)
+        assertEquals("ws://avl.vtps.org:5200", parsed.socketConfig.wsUrl)
+        assertTrue(parsed.socketConfig.useWebSocket)
+        assertEquals("01", parsed.socketConfig.serverDigits)
+        assertEquals(-5, parsed.socketConfig.timezoneOffsetHours)
+        assertTrue(parsed.hideSettingsUi)
+        assertEquals("Demo Tracking Co", parsed.companyName)
+
+        // Test custom port base change (Farhan Bhai demo scenario)
+        val customCompanyJson = """
+        {
+          "server": {
+            "tcp_host": "avl.vtps.org",
+            "tcp_port": 5202,
+            "ws_url": "ws://avl.vtps.org:5202",
+            "use_websocket": false
+          },
+          "protocol": {
+            "server_digits": "03",
+            "timezone_offset_hours": -5
+          },
+          "app": {
+            "company_name": "Farhan Company Demo B",
+            "hide_settings_ui": true
+          }
+        }
+        """.trimIndent()
+
+        val parsedCustom = com.example.util.JsonConfigManager.parseJsonConfig(customCompanyJson, baseConfig)
+        assertEquals(5202, parsedCustom.socketConfig.tcpPort)
+        assertEquals("ws://avl.vtps.org:5202", parsedCustom.socketConfig.wsUrl)
+        assertFalse(parsedCustom.socketConfig.useWebSocket)
+        assertEquals("03", parsedCustom.socketConfig.serverDigits)
+        assertEquals(-5, parsedCustom.socketConfig.timezoneOffsetHours) // -5h remains preserved
+        assertTrue(parsedCustom.hideSettingsUi)
     }
 }
 
