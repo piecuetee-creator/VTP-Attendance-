@@ -42,6 +42,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     val socketConfig: StateFlow<SocketConfig> = repository.socketConfig
     val lastTimeIn: StateFlow<AttendanceRecord?> = repository.lastTimeIn
     val lastTimeOut: StateFlow<AttendanceRecord?> = repository.lastTimeOut
+    val todayTimeInCount: StateFlow<Int> = repository.todayTimeInCount
+    val todayTimeOutCount: StateFlow<Int> = repository.todayTimeOutCount
+    val todayRecords: StateFlow<List<AttendanceRecord>> = repository.todayRecords
 
     val unsyncedCount: StateFlow<Int> = repository.unsyncedCount
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -76,6 +79,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     private val _syncNotificationEvent = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 5)
     val syncNotificationEvent: SharedFlow<String> = _syncNotificationEvent.asSharedFlow()
 
+    private val _punchNotificationEvent = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 5)
+    val punchNotificationEvent: SharedFlow<String> = _punchNotificationEvent.asSharedFlow()
+
     fun getEffectiveTimeZone() = repository.getEffectiveTimeZone()
 
     private val _authState = MutableStateFlow(
@@ -107,14 +113,6 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .build()
             connectivityManager?.registerNetworkCallback(request, networkCallback)
-        } catch (_: Exception) {}
-
-        // Silent startup check: If a presence_config.json was placed or pushed via FOTA, apply it automatically
-        try {
-            val autoConfigStr = com.example.util.JsonConfigManager.findLocalConfigFile(application)
-            if (!autoConfigStr.isNullOrBlank()) {
-                loadConfigFromJson(autoConfigStr)
-            }
         } catch (_: Exception) {}
     }
 
@@ -218,13 +216,6 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     fun onTimeInClicked() {
         if (_isProcessingTimeIn.value) return
 
-        val existing = lastTimeIn.value
-        if (existing != null) {
-            _activeDialogRecord.value = existing
-            socketClient.addLog(LogDirection.INFO, "Time In was already marked at ${existing.formattedDateTime}")
-            return
-        }
-
         viewModelScope.launch {
             _isProcessingTimeIn.value = true
             _serverErrorMessage.value = null
@@ -284,9 +275,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         timestampOverride = punchTime
                     )
                     _activeDialogRecord.value = record
+                    _punchNotificationEvent.emit("Time In #${record.punchNumber} marked successfully!")
                     socketClient.addLog(
                         LogDirection.INFO,
-                        "Time In marked successfully for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
+                        "Time In #${record.punchNumber} marked successfully for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
                     )
                 } else {
                     // Offline Fallback: Save in Room database so attendance is never lost
@@ -305,8 +297,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         timestampOverride = punchTime
                     )
                     _activeDialogRecord.value = record
+                    _punchNotificationEvent.emit("Time In #${record.punchNumber} saved to offline queue")
                     val errorDetail = if (message.isNotBlank()) message else "No internet/server unreachable"
-                    socketClient.addLog(LogDirection.WARN, "Time In saved locally in offline queue ($errorDetail). Will auto-sync when online.")
+                    socketClient.addLog(LogDirection.WARN, "Time In #${record.punchNumber} saved locally in offline queue ($errorDetail). Will auto-sync when online.")
                 }
             } catch (e: Exception) {
                 val coords = _currentCoordinates.value
@@ -328,8 +321,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     timestampOverride = punchTime
                 )
                 _activeDialogRecord.value = record
+                _punchNotificationEvent.emit("Time In #${record.punchNumber} saved to offline queue")
                 val err = e.localizedMessage ?: "Network error"
-                socketClient.addLog(LogDirection.WARN, "Time In stored in offline database ($err). Will auto-sync when online.")
+                socketClient.addLog(LogDirection.WARN, "Time In #${record.punchNumber} stored in offline database ($err). Will auto-sync when online.")
             } finally {
                 _isProcessingTimeIn.value = false
             }
@@ -338,13 +332,6 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     fun onTimeOutClicked() {
         if (_isProcessingTimeOut.value) return
-
-        val existing = lastTimeOut.value
-        if (existing != null) {
-            _activeDialogRecord.value = existing
-            socketClient.addLog(LogDirection.INFO, "Time Out was already marked at ${existing.formattedDateTime}")
-            return
-        }
 
         viewModelScope.launch {
             _isProcessingTimeOut.value = true
@@ -403,9 +390,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         timestampOverride = punchTime
                     )
                     _activeDialogRecord.value = record
+                    _punchNotificationEvent.emit("Time Out #${record.punchNumber} marked successfully!")
                     socketClient.addLog(
                         LogDirection.INFO,
-                        "Time Out marked successfully for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
+                        "Time Out #${record.punchNumber} marked successfully for ${profile.name.ifBlank { profile.employeeCode }} at ${record.formattedDateTime}"
                     )
                 } else {
                     // Offline Fallback: Save in Room database so attendance is never lost
@@ -424,8 +412,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         timestampOverride = punchTime
                     )
                     _activeDialogRecord.value = record
+                    _punchNotificationEvent.emit("Time Out #${record.punchNumber} saved to offline queue")
                     val errorDetail = if (message.isNotBlank()) message else "No internet/server unreachable"
-                    socketClient.addLog(LogDirection.WARN, "Time Out saved locally in offline queue ($errorDetail). Will auto-sync when online.")
+                    socketClient.addLog(LogDirection.WARN, "Time Out #${record.punchNumber} saved locally in offline queue ($errorDetail). Will auto-sync when online.")
                 }
             } catch (e: Exception) {
                 val coords = _currentCoordinates.value
@@ -447,8 +436,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     timestampOverride = punchTime
                 )
                 _activeDialogRecord.value = record
+                _punchNotificationEvent.emit("Time Out #${record.punchNumber} saved to offline queue")
                 val err = e.localizedMessage ?: "Network error"
-                socketClient.addLog(LogDirection.WARN, "Time Out stored in offline database ($err). Will auto-sync when online.")
+                socketClient.addLog(LogDirection.WARN, "Time Out #${record.punchNumber} stored in offline database ($err). Will auto-sync when online.")
             } finally {
                 _isProcessingTimeOut.value = false
             }
@@ -568,41 +558,6 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         socketClient.addLog(
             LogDirection.INFO,
             "Employee Profile updated: ${profile.name} (ID: ${profile.employeeId})"
-        )
-    }
-
-    val hideSettingsUi: StateFlow<Boolean> = repository.hideSettingsUi
-
-    fun setHideSettingsUi(hidden: Boolean) {
-        repository.setHideSettingsUi(hidden)
-    }
-
-    fun loadConfigFromJson(jsonStr: String): Pair<Boolean, String> {
-        return try {
-            val appConfig = com.example.util.JsonConfigManager.parseJsonConfig(jsonStr, socketConfig.value)
-            repository.applyJsonConfig(
-                newSocketConfig = appConfig.socketConfig,
-                hideSettings = appConfig.hideSettingsUi,
-                companyCode = appConfig.companyCode,
-                employeeCode = appConfig.employeeCode,
-                serverDigits = appConfig.serverDigits
-            )
-            socketClient.addLog(
-                LogDirection.INFO,
-                "JSON Config applied successfully: Host=${appConfig.socketConfig.tcpHost}, Port=${appConfig.socketConfig.tcpPort}, WS=${appConfig.socketConfig.useWebSocket}, HideSettings=${appConfig.hideSettingsUi}"
-            )
-            Pair(true, "Configuration imported successfully! Connected to port ${appConfig.socketConfig.tcpPort}")
-        } catch (e: Exception) {
-            val err = "Failed to parse JSON config: ${e.message ?: "Invalid format"}"
-            socketClient.addLog(LogDirection.ERROR, err)
-            Pair(false, err)
-        }
-    }
-
-    fun exportCurrentConfigJson(): String {
-        return com.example.util.JsonConfigManager.serializeConfigToJson(
-            config = socketConfig.value,
-            hideSettings = hideSettingsUi.value
         )
     }
 

@@ -82,9 +82,9 @@ val TimeInGreen = VtpOrange
 val TimeInGreenContainer = Color(0xFF2A150A)
 val TimeInGreenBorder = Color(0xFFFF7043)
 
-val TimeOutAmber = Color(0xFF1E293B)
-val TimeOutAmberContainer = Color(0xFF131B2A)
-val TimeOutAmberBorder = Color(0xFF334155)
+val TimeOutAmber = Color(0xFFF59E0B)
+val TimeOutAmberContainer = Color(0xFF2A1D0A)
+val TimeOutAmberBorder = Color(0xFFFBBF24)
 
 val BiometricCyan = VtpOrange
 val BiometricCyanContainer = Color(0xFF2A150A)

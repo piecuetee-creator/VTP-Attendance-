@@ -110,6 +110,93 @@ class AttendanceRepository(private val context: Context) {
     )
     val lastTimeOut = _lastTimeOut.asStateFlow()
 
+    private val _todayTimeInCount = MutableStateFlow(
+        loadSavedCount(AttendanceType.TIME_IN, savedCompanyCode, savedEmployeeCode)
+    )
+    val todayTimeInCount = _todayTimeInCount.asStateFlow()
+
+    private val _todayTimeOutCount = MutableStateFlow(
+        loadSavedCount(AttendanceType.TIME_OUT, savedCompanyCode, savedEmployeeCode)
+    )
+    val todayTimeOutCount = _todayTimeOutCount.asStateFlow()
+
+    private val _todayRecords = MutableStateFlow(
+        loadTodayRecords(savedCompanyCode, savedEmployeeCode)
+    )
+    val todayRecords = _todayRecords.asStateFlow()
+
+    private fun getTodayBounds(): Pair<Long, Long> {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        cal.set(java.util.Calendar.MINUTE, 0)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        val start = cal.timeInMillis
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 23)
+        cal.set(java.util.Calendar.MINUTE, 59)
+        cal.set(java.util.Calendar.SECOND, 59)
+        cal.set(java.util.Calendar.MILLISECOND, 999)
+        val end = cal.timeInMillis
+        return start to end
+    }
+
+    fun loadSavedCount(
+        type: AttendanceType,
+        companyCode: String = _employeeProfile.value.companyCode,
+        employeeCode: String = _employeeProfile.value.employeeCode
+    ): Int {
+        if (employeeCode.isBlank()) return 0
+        val today = getDayKeyFormat().format(Date())
+        val scopedPrefix = "${type.name}_${today}_${companyCode}_${employeeCode}"
+        val savedCount = prefs.getInt("${scopedPrefix}_count", -1)
+        if (savedCount >= 0) return savedCount
+        // Backward compatibility: if 1 record was previously saved without count key
+        return if (loadSavedRecord(type, companyCode, employeeCode) != null) 1 else 0
+    }
+
+    private fun loadTodayRecords(
+        companyCode: String,
+        employeeCode: String
+    ): List<AttendanceRecord> {
+        if (employeeCode.isBlank()) return emptyList()
+        val today = getDayKeyFormat().format(Date())
+        val resetAfter = prefs.getLong("reset_after_${today}_${companyCode}_${employeeCode}", 0L)
+        val (dayStart, dayEnd) = getTodayBounds()
+        return try {
+            var inSeq = 0
+            var outSeq = 0
+            dbHelper.getTodayRecordsForUser(companyCode, employeeCode, dayStart, dayEnd, resetAfter)
+                .map { entity ->
+                    val type = if (entity.type == AttendanceType.TIME_OUT.name) {
+                        outSeq++
+                        AttendanceType.TIME_OUT
+                    } else {
+                        inSeq++
+                        AttendanceType.TIME_IN
+                    }
+                    AttendanceRecord(
+                        id = entity.id,
+                        type = type,
+                        timestamp = entity.timestamp,
+                        formattedDateTime = entity.formattedDateTime,
+                        latitude = entity.latitude,
+                        longitude = entity.longitude,
+                        employeeId = entity.employeeCode,
+                        employeeName = entity.employeeName,
+                        locationName = entity.locationName,
+                        imei = entity.imei,
+                        status = if (entity.isSynced) "Success" else "In Queue",
+                        speedKmh = entity.speedKmh,
+                        courseAngle = entity.courseAngle,
+                        isSynced = entity.isSynced,
+                        punchNumber = if (type == AttendanceType.TIME_IN) inSeq else outSeq
+                    )
+                }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
     fun validateAttendanceTimestamp(timestamp: Long, isTimeIn: Boolean): String? {
         val highestRecorded = prefs.getLong("highest_recorded_timestamp", 0L)
         val dbMaxTimestamp = dbHelper.getLatestRecordTimestamp()
@@ -178,6 +265,8 @@ class AttendanceRepository(private val context: Context) {
             }
         } catch (_: Exception) {}
 
+        val savedPunchCount = prefs.getInt("${prefix}_count", 1).coerceAtLeast(1)
+
         return AttendanceRecord(
             type = type,
             timestamp = time,
@@ -191,7 +280,8 @@ class AttendanceRepository(private val context: Context) {
             status = if (isSynced) "Marked" else "In Queue",
             speedKmh = speed,
             courseAngle = angle,
-            isSynced = isSynced
+            isSynced = isSynced,
+            punchNumber = savedPunchCount
         )
     }
 
@@ -219,6 +309,9 @@ class AttendanceRepository(private val context: Context) {
     fun clearCurrentSession() {
         _lastTimeIn.value = null
         _lastTimeOut.value = null
+        _todayTimeInCount.value = 0
+        _todayTimeOutCount.value = 0
+        _todayRecords.value = emptyList()
     }
 
     fun saveAttendanceRecord(
@@ -243,6 +336,9 @@ class AttendanceRepository(private val context: Context) {
         val scopedPrefix = "${type.name}_${today}_${profile.companyCode}_${profile.employeeCode}"
         val effectiveLocation = locationNameOverride?.takeIf { it.isNotBlank() } ?: profile.location
 
+        val currentCount = loadSavedCount(type, profile.companyCode, profile.employeeCode)
+        val newCount = currentCount + 1
+
         // Update highest known timestamp to prevent backdating
         val prevHighest = prefs.getLong("highest_recorded_timestamp", 0L)
         val newHighest = maxOf(prevHighest, now)
@@ -261,6 +357,7 @@ class AttendanceRepository(private val context: Context) {
             putFloat("${scopedPrefix}_speed", speedKmh)
             putFloat("${scopedPrefix}_angle", courseAngle)
             putBoolean("${scopedPrefix}_isSynced", isSynced)
+            putInt("${scopedPrefix}_count", newCount)
             apply()
         }
 
@@ -279,14 +376,18 @@ class AttendanceRepository(private val context: Context) {
             rxHex = rxHex,
             speedKmh = speedKmh,
             courseAngle = courseAngle,
-            isSynced = isSynced
+            isSynced = isSynced,
+            punchNumber = newCount
         )
 
         if (type == AttendanceType.TIME_IN) {
             _lastTimeIn.value = record
+            _todayTimeInCount.value = newCount
         } else {
             _lastTimeOut.value = record
+            _todayTimeOutCount.value = newCount
         }
+        _todayRecords.value = _todayRecords.value + record
 
         // Persist to local SQLite database for offline reliability and history
         CoroutineScope(Dispatchers.IO).launch {
@@ -347,16 +448,22 @@ class AttendanceRepository(private val context: Context) {
         prefs.edit().apply {
             remove("${inPrefix}_time")
             remove("${inPrefix}_formatted")
+            remove("${inPrefix}_count")
             remove("${outPrefix}_time")
             remove("${outPrefix}_formatted")
+            remove("${outPrefix}_count")
             remove("${legacyIn}_time")
             remove("${legacyIn}_formatted")
             remove("${legacyOut}_time")
             remove("${legacyOut}_formatted")
+            putLong("reset_after_${today}_${companyCode}_${employeeCode}", System.currentTimeMillis())
             apply()
         }
         _lastTimeIn.value = null
         _lastTimeOut.value = null
+        _todayTimeInCount.value = 0
+        _todayTimeOutCount.value = 0
+        _todayRecords.value = emptyList()
     }
 
     fun loginWithDetails(
@@ -440,6 +547,9 @@ class AttendanceRepository(private val context: Context) {
         // Only load attendance belonging specifically to this companyCode + employeeCode
         _lastTimeIn.value = loadSavedRecord(AttendanceType.TIME_IN, cleanComp, cleanEmp)
         _lastTimeOut.value = loadSavedRecord(AttendanceType.TIME_OUT, cleanComp, cleanEmp)
+        _todayTimeInCount.value = loadSavedCount(AttendanceType.TIME_IN, cleanComp, cleanEmp)
+        _todayTimeOutCount.value = loadSavedCount(AttendanceType.TIME_OUT, cleanComp, cleanEmp)
+        _todayRecords.value = loadTodayRecords(cleanComp, cleanEmp)
     }
 
     fun loginWithCodes(companyCode: String, employeeCode: String, serverDigits: String = "01") {
@@ -480,38 +590,6 @@ class AttendanceRepository(private val context: Context) {
         }
         if (_socketConfig.value.imei != sanitizedImei) {
             _socketConfig.value = _socketConfig.value.copy(imei = sanitizedImei)
-        }
-    }
-
-    private val _hideSettingsUi = MutableStateFlow(
-        prefs.getBoolean("hide_settings_ui", false)
-    )
-    val hideSettingsUi = _hideSettingsUi.asStateFlow()
-
-    fun setHideSettingsUi(hidden: Boolean) {
-        _hideSettingsUi.value = hidden
-        prefs.edit().putBoolean("hide_settings_ui", hidden).apply()
-    }
-
-    fun applyJsonConfig(
-        newSocketConfig: SocketConfig,
-        hideSettings: Boolean? = null,
-        companyCode: String? = null,
-        employeeCode: String? = null,
-        serverDigits: String? = null
-    ) {
-        updateSocketConfig(newSocketConfig)
-        if (hideSettings != null) {
-            setHideSettingsUi(hideSettings)
-        }
-        if (!companyCode.isNullOrBlank() || !employeeCode.isNullOrBlank() || !serverDigits.isNullOrBlank()) {
-            val cur = _employeeProfile.value
-            val comp = (companyCode ?: cur.companyCode).filter { it.isDigit() }
-            val emp = (employeeCode ?: cur.employeeCode).filter { it.isDigit() }
-            val srv = (serverDigits ?: cur.serverDigits).filter { it.isDigit() }.padStart(2, '0').takeLast(2)
-            if (comp.isNotBlank() && emp.isNotBlank()) {
-                loginWithDetails(comp, emp, cur.name, cur.designation, cur.location, srv)
-            }
         }
     }
 

@@ -148,47 +148,69 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun jsonConfigManager_parseSampleAndSerialize_preservesSettings() {
-        val sampleJson = com.example.util.JsonConfigManager.getSampleConfigJson()
-        val baseConfig = com.example.model.SocketConfig()
-        val parsed = com.example.util.JsonConfigManager.parseJsonConfig(sampleJson, baseConfig)
+    fun repository_multipleTimeInAndTimeOut_incrementsCountsAndResetsCleanly() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val repo = com.example.data.AttendanceRepository(context)
+        repo.loginWithDetails("1001", "0452", "Test Tech", "Technician", "Karachi", "01")
+        repo.resetBiometric()
 
-        assertEquals("avl.vtps.org", parsed.socketConfig.tcpHost)
-        assertEquals(5200, parsed.socketConfig.tcpPort)
-        assertEquals("ws://avl.vtps.org:5200", parsed.socketConfig.wsUrl)
-        assertTrue(parsed.socketConfig.useWebSocket)
-        assertEquals("01", parsed.socketConfig.serverDigits)
-        assertEquals(-5, parsed.socketConfig.timezoneOffsetHours)
-        assertTrue(parsed.hideSettingsUi)
-        assertEquals("Demo Tracking Co", parsed.companyName)
+        assertEquals(0, repo.todayTimeInCount.value)
+        assertEquals(0, repo.todayTimeOutCount.value)
 
-        // Test custom port base change (Farhan Bhai demo scenario)
-        val customCompanyJson = """
-        {
-          "server": {
-            "tcp_host": "avl.vtps.org",
-            "tcp_port": 5202,
-            "ws_url": "ws://avl.vtps.org:5202",
-            "use_websocket": false
-          },
-          "protocol": {
-            "server_digits": "03",
-            "timezone_offset_hours": -5
-          },
-          "app": {
-            "company_name": "Farhan Company Demo B",
-            "hide_settings_ui": true
-          }
-        }
-        """.trimIndent()
+        val now = System.currentTimeMillis()
+        val in1 = repo.saveAttendanceRecord(
+            type = com.example.model.AttendanceType.TIME_IN,
+            lat = 24.8607,
+            lon = 67.0011,
+            txHex = null,
+            rxHex = null,
+            isSynced = true,
+            timestampOverride = now
+        )
+        assertEquals(1, in1.punchNumber)
+        assertEquals(1, repo.todayTimeInCount.value)
 
-        val parsedCustom = com.example.util.JsonConfigManager.parseJsonConfig(customCompanyJson, baseConfig)
-        assertEquals(5202, parsedCustom.socketConfig.tcpPort)
-        assertEquals("ws://avl.vtps.org:5202", parsedCustom.socketConfig.wsUrl)
-        assertFalse(parsedCustom.socketConfig.useWebSocket)
-        assertEquals("03", parsedCustom.socketConfig.serverDigits)
-        assertEquals(-5, parsedCustom.socketConfig.timezoneOffsetHours) // -5h remains preserved
-        assertTrue(parsedCustom.hideSettingsUi)
+        val out1 = repo.saveAttendanceRecord(
+            type = com.example.model.AttendanceType.TIME_OUT,
+            lat = 24.8607,
+            lon = 67.0011,
+            txHex = null,
+            rxHex = null,
+            isSynced = true,
+            timestampOverride = now + 1000L
+        )
+        assertEquals(1, out1.punchNumber)
+        assertEquals(1, repo.todayTimeOutCount.value)
+
+        val in2 = repo.saveAttendanceRecord(
+            type = com.example.model.AttendanceType.TIME_IN,
+            lat = 24.8615,
+            lon = 67.0020,
+            txHex = null,
+            rxHex = null,
+            isSynced = true,
+            timestampOverride = now + 2000L
+        )
+        assertEquals(2, in2.punchNumber)
+        assertEquals(2, repo.todayTimeInCount.value)
+
+        val out2 = repo.saveAttendanceRecord(
+            type = com.example.model.AttendanceType.TIME_OUT,
+            lat = 24.8615,
+            lon = 67.0020,
+            txHex = null,
+            rxHex = null,
+            isSynced = true,
+            timestampOverride = now + 3000L
+        )
+        assertEquals(2, out2.punchNumber)
+        assertEquals(2, repo.todayTimeOutCount.value)
+        assertEquals(4, repo.todayRecords.value.size)
+
+        repo.resetBiometric()
+        assertEquals(0, repo.todayTimeInCount.value)
+        assertEquals(0, repo.todayTimeOutCount.value)
+        assertTrue(repo.todayRecords.value.isEmpty())
     }
 }
 

@@ -48,6 +48,8 @@ fun AttendanceConfirmationCard(
     record: AttendanceRecord?,
     profile: EmployeeProfile,
     currentLocationName: String,
+    timeInCount: Int = 0,
+    timeOutCount: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val isMarked = record != null
@@ -116,7 +118,7 @@ fun AttendanceConfirmationCard(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isSynced) "$actionName marked successfully!" else "$actionName is in Queue",
+                            text = if (isSynced) "$actionName #${record.punchNumber} marked successfully!" else "$actionName #${record.punchNumber} is in Queue",
                             fontSize = 15.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -125,7 +127,7 @@ fun AttendanceConfirmationCard(
                             text = if (isSynced) "${record.formattedDateTime} • Confirmed by server" else "${record.formattedDateTime} • Waiting for connection to mark on server",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (isSynced) VtpOrange else Color(0xFFFBBF24),
+                            color = if (isSynced) primaryColor else Color(0xFFFBBF24),
                             modifier = Modifier.padding(top = 2.dp)
                         )
                     }
@@ -163,6 +165,47 @@ fun AttendanceConfirmationCard(
                             text = "Verify biometric with Time In or Time Out",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            if (timeInCount > 0 || timeOutCount > 0) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF0F1523))
+                        .border(0.8.dp, Color(0xFF222F48), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "TODAY'S PUNCHES",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF818EA6),
+                        letterSpacing = 0.5.sp
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "IN: $timeInCount",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = VtpOrange
+                        )
+                        Text(
+                            text = "•",
+                            fontSize = 12.sp,
+                            color = Color(0xFF475569)
+                        )
+                        Text(
+                            text = "OUT: $timeOutCount",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = TimeOutAmber
                         )
                     }
                 }

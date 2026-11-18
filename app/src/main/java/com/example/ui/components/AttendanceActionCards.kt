@@ -56,6 +56,8 @@ import com.example.ui.theme.VtpOrangeLight
 fun AttendanceActionCards(
     lastTimeIn: AttendanceRecord?,
     lastTimeOut: AttendanceRecord?,
+    timeInCount: Int = 0,
+    timeOutCount: Int = 0,
     isProcessingTimeIn: Boolean,
     isProcessingTimeOut: Boolean,
     onTimeInClick: () -> Unit,
@@ -73,27 +75,29 @@ fun AttendanceActionCards(
             title = "Time In",
             subtitle = when {
                 lastTimeIn != null && !lastTimeIn.isSynced -> "In Queue (Offline)"
-                lastTimeIn != null -> "Punched Today"
+                timeInCount > 0 -> "Tap for Next IN"
                 else -> "Start Shift"
             },
             isTimeIn = true,
             markedRecord = lastTimeIn,
+            punchCount = timeInCount,
             isProcessing = isProcessingTimeIn,
             onClick = onTimeInClick,
             testTag = "time_in_button",
             modifier = Modifier.weight(1f)
         )
 
-        // TIME OUT CARD (Obsidian Black & Charcoal Gradient)
+        // TIME OUT CARD (Obsidian Black & Charcoal Gradient with Crisp Amber Accent)
         AttendanceGradientCard(
             title = "Time Out",
             subtitle = when {
                 lastTimeOut != null && !lastTimeOut.isSynced -> "In Queue (Offline)"
-                lastTimeOut != null -> "Punched Today"
+                timeOutCount > 0 -> "Tap for Next OUT"
                 else -> "End Shift"
             },
             isTimeIn = false,
             markedRecord = lastTimeOut,
+            punchCount = timeOutCount,
             isProcessing = isProcessingTimeOut,
             onClick = onTimeOutClick,
             testTag = "time_out_button",
@@ -108,6 +112,7 @@ private fun AttendanceGradientCard(
     subtitle: String,
     isTimeIn: Boolean,
     markedRecord: AttendanceRecord?,
+    punchCount: Int,
     isProcessing: Boolean,
     onClick: () -> Unit,
     testTag: String,
@@ -154,9 +159,9 @@ private fun AttendanceGradientCard(
     } else {
         Brush.linearGradient(
             colors = listOf(
-                Color(0xFF334155),
                 Color(0xFF475569),
-                Color(0xFF1E293B)
+                Color(0xFF64748B),
+                Color(0xFF334155)
             )
         )
     }
@@ -172,14 +177,14 @@ private fun AttendanceGradientCard(
     } else {
         Brush.linearGradient(
             colors = listOf(
-                Color(0xFF27272A),
-                Color(0xFF18181B),
-                Color(0xFF0C0A09)
+                Color(0xFF334155),
+                Color(0xFF1E293B),
+                Color(0xFF0F172A)
             )
         )
     }
 
-    val glowShadowColor = if (isTimeIn) Color(0xFFFF6600) else Color(0xFF18181B)
+    val glowShadowColor = if (isTimeIn) Color(0xFFFF6600) else Color(0xFF334155)
     val iconVector = if (isTimeIn) Icons.Default.Login else Icons.Default.Logout
 
     Surface(
@@ -213,6 +218,34 @@ private fun AttendanceGradientCard(
                 .background(cardBackgroundGradient)
                 .padding(vertical = 22.dp, horizontal = 14.dp)
         ) {
+            // Small IN / OUT daily count badge at top-right
+            if (punchCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            if (isTimeIn) VtpOrange.copy(alpha = 0.22f)
+                            else Color(0xFFF59E0B).copy(alpha = 0.22f)
+                        )
+                        .border(
+                            1.dp,
+                            if (isTimeIn) VtpOrange.copy(alpha = 0.6f)
+                            else Color(0xFFF59E0B).copy(alpha = 0.6f),
+                            RoundedCornerShape(10.dp)
+                        )
+                        .padding(horizontal = 7.dp, vertical = 2.dp)
+                        .testTag(if (isTimeIn) "time_in_count_badge" else "time_out_count_badge")
+                ) {
+                    Text(
+                        text = if (isTimeIn) "IN: $punchCount" else "OUT: $punchCount",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (isTimeIn) Color(0xFFFFB28A) else Color(0xFFFDE68A)
+                    )
+                }
+            }
+
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -225,12 +258,12 @@ private fun AttendanceGradientCard(
                         .clip(CircleShape)
                         .background(
                             if (isTimeIn) Color(0xFFFF6600).copy(alpha = 0.12f)
-                            else Color(0xFF27272A).copy(alpha = 0.08f)
+                            else Color(0xFF94A3B8).copy(alpha = 0.12f)
                         )
                         .border(
                             1.5.dp,
                             if (isTimeIn) Color(0xFFFF6600).copy(alpha = 0.25f)
-                            else Color(0xFF27272A).copy(alpha = 0.15f),
+                            else Color(0xFF94A3B8).copy(alpha = 0.25f),
                             CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -238,7 +271,7 @@ private fun AttendanceGradientCard(
                     if (isProcessing) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(32.dp),
-                            color = if (isTimeIn) VtpOrange else Color(0xFF18181B),
+                            color = if (isTimeIn) VtpOrange else Color(0xFFF59E0B),
                             strokeWidth = 3.dp
                         )
                     } else {
@@ -286,6 +319,7 @@ private fun AttendanceGradientCard(
                 if (markedRecord != null) {
                     val recordTime = markedRecord.formattedDateTime.substringAfter(" ")
                     val isInQueue = !markedRecord.isSynced
+                    val displayNum = punchCount.coerceAtLeast(markedRecord.punchNumber)
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(14.dp))
@@ -298,11 +332,16 @@ private fun AttendanceGradientCard(
                                         listOf(Color(0xFFEA580C), Color(0xFFFF6600))
                                     )
                                     else -> Brush.horizontalGradient(
-                                        listOf(Color(0xFF27272A), Color(0xFF18181B))
+                                        listOf(Color(0xFF334155), Color(0xFF475569))
                                     )
                                 }
                             )
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .border(
+                                width = if (!isTimeIn && !isInQueue) 1.dp else 0.dp,
+                                color = if (!isTimeIn && !isInQueue) Color(0xFFF59E0B).copy(alpha = 0.5f) else Color.Transparent,
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -311,12 +350,12 @@ private fun AttendanceGradientCard(
                             Icon(
                                 imageVector = if (isInQueue) Icons.Default.Schedule else Icons.Default.Check,
                                 contentDescription = if (isInQueue) "In Queue" else "Marked",
-                                tint = Color.White,
+                                tint = if (!isTimeIn && !isInQueue) Color(0xFFFBBF24) else Color.White,
                                 modifier = Modifier.size(13.dp)
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = if (isInQueue) "Queue • $recordTime" else "Marked • $recordTime",
+                                text = if (isInQueue) "Queue #$displayNum • $recordTime" else "#$displayNum • $recordTime",
                                 color = Color.White,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
@@ -331,18 +370,18 @@ private fun AttendanceGradientCard(
                             .background(
                                 if (isTimeIn) {
                                     Brush.horizontalGradient(
-                                        listOf(Color(0xFFFF6600).copy(alpha = 0.15f), Color(0xFFFF8533).copy(alpha = 0.25f))
+                                        listOf(Color(0xFFFF6600).copy(alpha = 0.18f), Color(0xFFFF8533).copy(alpha = 0.28f))
                                     )
                                 } else {
                                     Brush.horizontalGradient(
-                                        listOf(Color(0xFF27272A).copy(alpha = 0.10f), Color(0xFF52525B).copy(alpha = 0.18f))
+                                        listOf(Color(0xFF334155).copy(alpha = 0.45f), Color(0xFF475569).copy(alpha = 0.45f))
                                     )
                                 }
                             )
                             .border(
                                 1.dp,
-                                if (isTimeIn) Color(0xFFFF6600).copy(alpha = 0.4f)
-                                else Color(0xFF52525B).copy(alpha = 0.3f),
+                                if (isTimeIn) Color(0xFFFF6600).copy(alpha = 0.45f)
+                                else Color(0xFF64748B).copy(alpha = 0.45f),
                                 RoundedCornerShape(14.dp)
                             )
                             .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -350,7 +389,7 @@ private fun AttendanceGradientCard(
                         Text(
                             text = "Tap to Record",
                             fontSize = 11.5.sp,
-                            color = if (isTimeIn) VtpOrangeDark else Color(0xFF18181B),
+                            color = if (isTimeIn) Color(0xFFFFAB70) else Color(0xFFE2E8F0),
                             fontWeight = FontWeight.Bold
                         )
                     }

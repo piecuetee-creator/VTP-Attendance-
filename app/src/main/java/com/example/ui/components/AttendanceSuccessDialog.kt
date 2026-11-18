@@ -75,6 +75,8 @@ import com.example.ui.theme.VtpOrange
 fun AttendanceSuccessDialog(
     record: AttendanceRecord,
     profile: EmployeeProfile,
+    timeInCount: Int = 0,
+    timeOutCount: Int = 0,
     isAlreadyMarked: Boolean = false,
     onDismiss: () -> Unit
 ) {
@@ -145,11 +147,11 @@ fun AttendanceSuccessDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Title (e.g. "Time In is in Queue" or "Time In marked successfully!")
+                // Title (e.g. "Time In #2 marked successfully!" or "Time Out #1 marked successfully!")
                 val headline = when {
-                    !isSynced -> "$actionTitle is in Queue"
+                    !isSynced -> "$actionTitle #${record.punchNumber} is in Queue"
                     isAlreadyMarked -> "$actionTitle is already marked!"
-                    else -> "$actionTitle marked successfully!"
+                    else -> "$actionTitle #${record.punchNumber} marked successfully!"
                 }
 
                 Text(
@@ -240,6 +242,11 @@ fun AttendanceSuccessDialog(
                             else -> "Headquarters Office"
                         }
                         ProfileDetailRow(label = "Location:", value = resolvedLocation)
+                        HorizontalDivider(color = dividerColor, thickness = 0.5.dp)
+                        ProfileDetailRow(
+                            label = "Today's Count:",
+                            value = "$timeInCount IN • $timeOutCount OUT"
+                        )
                     }
                 }
 

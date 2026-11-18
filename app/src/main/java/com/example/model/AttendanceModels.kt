@@ -59,5 +59,6 @@ data class AttendanceRecord(
     val rxHex: String? = null,
     val speedKmh: Float = 0f,
     val courseAngle: Float = 0f,
-    val isSynced: Boolean = true
+    val isSynced: Boolean = true,
+    val punchNumber: Int = 1
 )
