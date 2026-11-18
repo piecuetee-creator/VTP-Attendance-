@@ -126,6 +126,12 @@ abstract class CopyApkTask : DefaultTask() {
   @get:OutputDirectory
   abstract val targetDir: DirectoryProperty
 
+  @get:Internal
+  abstract val sdkRootPath: Property<String>
+
+  @get:Internal
+  abstract val rootApkFile: RegularFileProperty
+
   @TaskAction
   fun copyApks() {
     val src = sourceDir.get().asFile
@@ -133,17 +139,77 @@ abstract class CopyApkTask : DefaultTask() {
     if (!dst.exists()) {
       dst.mkdirs()
     }
+    dst.listFiles()?.filter { it.name.endsWith(".idsig") }?.forEach { it.delete() }
+
     val debugApk = File(src, "app-debug.apk")
-    if (debugApk.exists()) {
-      debugApk.copyTo(File(dst, "app-debug.apk"), overwrite = true)
-      debugApk.copyTo(File(dst, "vtp-attendance.apk"), overwrite = true)
+    if (!debugApk.exists()) return
+
+    val outAppDebug = File(dst, "app-debug.apk")
+    val outVtpApk = File(dst, "vtp-attendance.apk")
+    val outRootApk = rootApkFile.get().asFile
+
+    val sdkDir = File(sdkRootPath.get())
+    val buildToolsDir = File(sdkDir, "build-tools")
+      .listFiles { f -> f.isDirectory }
+      ?.sortedBy { it.name }
+      ?.lastOrNull()
+    val zipalign = buildToolsDir?.let { File(it, "zipalign") }?.takeIf { it.canExecute() }
+    val apksigner = buildToolsDir?.let { File(it, "apksigner") }?.takeIf { it.canExecute() }
+    val debugKeystore = File(System.getProperty("user.home"), ".android/debug.keystore")
+      .takeIf { it.exists() }
+
+    if (zipalign != null && apksigner != null && debugKeystore != null) {
+      val alignedTmp = File(dst, "app-debug-aligned.tmp.apk")
+      try {
+        val alignProc = ProcessBuilder(
+          zipalign.absolutePath, "-f", "-p", "-P", "16", "4",
+          debugApk.absolutePath, alignedTmp.absolutePath
+        ).redirectErrorStream(true).start()
+        val alignExit = alignProc.waitFor()
+        val inputForSign = if (alignExit == 0 && alignedTmp.exists()) alignedTmp else debugApk
+
+        val signProc = ProcessBuilder(
+          apksigner.absolutePath, "sign",
+          "--ks", debugKeystore.absolutePath,
+          "--ks-pass", "pass:android",
+          "--ks-key-alias", "androiddebugkey",
+          "--key-pass", "pass:android",
+          "--min-sdk-version", "21",
+          "--v1-signing-enabled", "true",
+          "--v2-signing-enabled", "true",
+          "--v3-signing-enabled", "true",
+          "--v4-signing-enabled", "false",
+          "--out", outAppDebug.absolutePath,
+          inputForSign.absolutePath
+        ).redirectErrorStream(true).start()
+        val signOutput = signProc.inputStream.bufferedReader().readText()
+        val signExit = signProc.waitFor()
+        if (signExit != 0) {
+          throw GradleException("apksigner failed ($signExit): $signOutput")
+        }
+      } finally {
+        alignedTmp.delete()
+        dst.listFiles()?.filter { it.name.endsWith(".idsig") }?.forEach { it.delete() }
+      }
+    } else {
+      debugApk.copyTo(outAppDebug, overwrite = true)
     }
+
+    outAppDebug.copyTo(outVtpApk, overwrite = true)
+    outAppDebug.copyTo(outRootApk, overwrite = true)
   }
 }
 
 val copyApkTask = tasks.register<CopyApkTask>("copyApkToFolder") {
   sourceDir.set(layout.buildDirectory.dir("outputs/apk/debug"))
   targetDir.set(File(rootDir, "apk"))
+  sdkRootPath.set(
+    providers.environmentVariable("ANDROID_SDK_ROOT")
+      .orElse(providers.environmentVariable("ANDROID_HOME"))
+      .orElse("")
+  )
+  rootApkFile.set(File(rootDir, "vtp-attendance.apk"))
+  outputs.upToDateWhen { false }
 }
 
 tasks.matching { it.name == "assembleDebug" }.configureEach {
