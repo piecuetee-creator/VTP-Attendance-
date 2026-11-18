@@ -153,13 +153,9 @@ fun AttendanceScreen(
             employeeProfile.companyCode.isNotBlank() &&
             (employeeProfile.employeeCode.isNotBlank() || employeeProfile.employeeId.isNotBlank())
 
-    var showConsoleSheet by remember { mutableStateOf(false) }
-    var showSettingsSheet by remember { mutableStateOf(false) }
     var showProfileDialog by remember { mutableStateOf(false) }
     var showLocationPicker by remember { mutableStateOf(false) }
     var showLoginSheet by remember { mutableStateOf(false) }
-    val consoleSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val settingsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -357,26 +353,6 @@ fun AttendanceScreen(
                                 }
                             )
                         }
-                        DropdownMenuItem(
-                            text = { Text("Settings & Connection") },
-                            leadingIcon = {
-                                Icon(Icons.Default.Settings, contentDescription = null, tint = VtpOrange)
-                            },
-                            onClick = {
-                                showOptionsMenu = false
-                                showSettingsSheet = true
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Console Logs") },
-                            leadingIcon = {
-                                Icon(Icons.Default.Terminal, contentDescription = null, tint = Color(0xFF94A3B8))
-                            },
-                            onClick = {
-                                showOptionsMenu = false
-                                showConsoleSheet = true
-                            }
-                        )
                         DropdownMenuItem(
                             text = { Text("Reset Today's Attendance") },
                             leadingIcon = {
@@ -609,44 +585,6 @@ fun AttendanceScreen(
                 }
             },
             onDismiss = { showLocationPicker = false }
-        )
-    }
-
-    // Modal Bottom Sheets
-    if (showConsoleSheet) {
-        ConsoleLogSheet(
-            logs = logs,
-            connectionStatus = connectionStatus,
-            targetUrl = if (socketConfig.useWebSocket) socketConfig.wsUrl else "${socketConfig.tcpHost}:${socketConfig.tcpPort}",
-            onClearLogs = { viewModel.clearLogs() },
-            onSendTestLogin = { viewModel.sendTestLoginPacket() },
-            onDismiss = { showConsoleSheet = false },
-            sheetState = consoleSheetState
-        )
-    }
-
-    if (showSettingsSheet) {
-        SettingsSheet(
-            profile = employeeProfile,
-            config = socketConfig,
-            isUserLoggedIn = isUserLoggedIn,
-            unsyncedCount = unsyncedCount,
-            isSyncing = isSyncing,
-            onSyncOffline = { viewModel.syncOfflineRecords() },
-            onSaveProfile = { newProfile ->
-                viewModel.updateProfile(newProfile)
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Profile updated successfully")
-                }
-            },
-            onSaveConfig = { newConfig ->
-                viewModel.updateSocketConfig(newConfig)
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("Socket config updated successfully")
-                }
-            },
-            onDismiss = { showSettingsSheet = false },
-            sheetState = settingsSheetState
         )
     }
 
