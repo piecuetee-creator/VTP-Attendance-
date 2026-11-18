@@ -354,19 +354,6 @@ fun AttendanceScreen(
                             )
                         }
                         DropdownMenuItem(
-                            text = { Text("Reset Today's Attendance") },
-                            leadingIcon = {
-                                Icon(Icons.Default.Refresh, contentDescription = null, tint = VtpOrange)
-                            },
-                            onClick = {
-                                showOptionsMenu = false
-                                viewModel.resetTodayAttendance()
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar("Today's attendance records have been reset.")
-                                }
-                            }
-                        )
-                        DropdownMenuItem(
                             text = { Text("Log Out") },
                             leadingIcon = {
                                 Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFEF4444))
